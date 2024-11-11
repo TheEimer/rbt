@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING
 import hydra
 import jax
 from arlbench.arlbench import run_arlbench
+from omegaconf import OmegaConf
+OmegaConf.register_new_resolver("eval", eval)
 
 if TYPE_CHECKING:
     from omegaconf import DictConfig

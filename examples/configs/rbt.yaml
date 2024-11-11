@@ -1,19 +1,25 @@
 defaults:
   - _self_
-  - /algorithm: dqn
+  - /algorithm: redo_dqn
   - /environment: cc_cartpole
   - search_space: dqn
 
 hydra:
   run:
-    dir: results/${algorithm}_${environment.name}/${autorl.seed}
+    dir: results/rbt_${environment.name}/${autorl.seed}
   sweep:
-    dir: results/${algorithm}_${environment.name}/${autorl.seed}
+    dir: results/rbt_${environment.name}/${autorl.seed}
   job:
     chdir: true
 
 jax_enable_x64: false
 load_checkpoint: ""
+
+n_configs_per_iteration: 22
+n_iterations: 10
+full_eval: true
+n_eval_episodes: 10
+hb_eta: 3
 
 autorl:
   seed: 42
@@ -25,14 +31,23 @@ autorl:
   algorithm: ${algorithm}
   cnn_policy: ${environment.cnn_policy}
   nas_config: ${nas_config}
-  n_total_timesteps: ${environment.n_total_timesteps}
+  n_total_timesteps: ${eval:'${environment.n_total_timesteps} // ${n_iterations}'}
   checkpoint: []
   checkpoint_name: "default_checkpoint"
   checkpoint_dir: "/tmp"
   state_features: []
   objectives: ["reward_mean"]
   optimize_objectives: "upper"
-  n_steps: 1
+  n_steps: ${n_iterations}
   n_eval_steps: 100
   n_eval_episodes: 10
+  weight_recycler_config: 
+    weight_recycler: "primacy"
+    reset_period: 10000
+    reset_end_step: ${environment.n_total_timesteps}
+  manual_epsilon: true
+  epsilon: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+  offline_update_fraction: 0.000
+  manual_offline_updates: true
+  manual_recycling: true
   

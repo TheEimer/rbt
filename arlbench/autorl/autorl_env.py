@@ -17,6 +17,7 @@ from arlbench.core.algorithms import (
     SAC,
     Algorithm,
     AlgorithmState,
+    ResetDQN,
     TrainResult,
     TrainReturnT,
 )
@@ -64,13 +65,21 @@ class AutoRLEnv(gymnasium.Env):
     In each step, one iteration of training is performed with the current hyperparameter configuration (= action).
     """
 
-    ALGORITHMS = {"ppo": PPO, "dqn": DQN, "sac": SAC}
+    ALGORITHMS = {"ppo": PPO, "dqn": DQN, "redo_dqn": ResetDQN, "sac": SAC}
     _algorithm: Algorithm
     _get_obs: Callable[[], np.ndarray]
     _algorithm_state: AlgorithmState | None
     _train_result: TrainResult | None
     _hpo_config: Configuration
     _total_training_steps: int
+
+    @property
+    def algorithm_state(self):
+        return self._algorithm_state
+
+    @algorithm_state.setter
+    def algorithm_state(self, value):
+        self._algorithm_state = value
 
     def __init__(self, config: dict | None = None) -> None:
         """Creates a new AutoRL environment instance.
@@ -82,15 +91,14 @@ class AutoRLEnv(gymnasium.Env):
         super().__init__()
 
         self._config = DEFAULT_AUTO_RL_CONFIG.copy()
+        self.algorithm_kwargs = {}
 
         if config:
             for k, v in config.items():
                 if k in DEFAULT_AUTO_RL_CONFIG:
                     self._config[k] = v
                 else:
-                    warnings.warn(
-                        f"Invalid config key '{k}'. This item will be ignored."
-                    )
+                    self.algorithm_kwargs[k] = v
 
         self._seed = int(self._config["seed"])
 
@@ -264,6 +272,7 @@ class AutoRLEnv(gymnasium.Env):
             track_trajectories=self._track_trajectories,
             cnn_policy=self._config["cnn_policy"],
             deterministic_eval=self._config["deterministic_eval"],
+            **self.algorithm_kwargs,
         )
 
     def step(

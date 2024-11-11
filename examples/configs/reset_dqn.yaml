@@ -1,14 +1,14 @@
 defaults:
   - _self_
-  - /algorithm: dqn
+  - /algorithm: redo_dqn
   - /environment: cc_cartpole
   - search_space: dqn
 
 hydra:
   run:
-    dir: results/${algorithm}_${environment.name}/${autorl.seed}
+    dir: results/redo_dqn_${environment.name}/${autorl.seed}
   sweep:
-    dir: results/${algorithm}_${environment.name}/${autorl.seed}
+    dir: results/redo_dqn_${environment.name}/${autorl.seed}
   job:
     chdir: true
 
@@ -35,4 +35,11 @@ autorl:
   n_steps: 1
   n_eval_steps: 100
   n_eval_episodes: 10
-  
+  weight_recycler_config: 
+    weight_recycler: "primacy"
+    reset_period: 10000
+    reset_end_step: ${environment.n_total_timesteps}
+  manual_epsilon: true
+  epsilon: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+  offline_update_fraction: 0.001
+  manual_offline_updates: false

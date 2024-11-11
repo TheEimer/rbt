@@ -131,10 +131,11 @@ class Checkpointer:
         # We get the factory functions depending on the algorithm at hand
         # This allows us to just call all functions without knowing which algorithm we are using
         if (
-            algorithm == "dqn"
+            (algorithm in ("redo_dqn", "dqn"))
             and isinstance(runner_state, DQNRunnerState)
             and isinstance(train_result, DQNTrainingResult)
         ):
+            algorithm_ckpt = DQN.get_checkpoint_factory(runner_state, train_result)
             algorithm_ckpt = DQN.get_checkpoint_factory(runner_state, train_result)
         elif (
             algorithm == "ppo"
@@ -332,7 +333,7 @@ class Checkpointer:
                 "network_params": Checkpointer._load_params(restored, "params"),
                 "opt_state": Checkpointer._load_adam_opt_state(restored, "opt_state"),
             }
-        elif autorl_config["algorithm"] == "dqn":
+        elif autorl_config["algorithm"] == "dqn" or autorl_config["algorithm"] == "redo_dqn":
             algorithm_kw_args = {
                 "buffer_state": buffer_state,
                 "network_params": Checkpointer._load_params(restored, "params"),

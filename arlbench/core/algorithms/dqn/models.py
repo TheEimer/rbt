@@ -6,6 +6,13 @@ import jax.numpy as jnp
 from flax.linen.initializers import constant, orthogonal
 
 
+class IdentityLayer(nn.Module):
+  """Identity layer, convenient for giving a name to an array."""
+
+  @nn.compact
+  def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
+    return x
+
 class CNNQ(nn.Module):
     """A CNN-based Q-Network for DQN."""
 
@@ -13,6 +20,12 @@ class CNNQ(nn.Module):
     activation: str = "tanh"
     hidden_size: int = 512
     discrete: bool = True
+
+    def _record_activations(self, x, layer):
+        if self.is_initializing():
+            name = "/".join(layer.scope.path)
+            self.layer_names.append(name)
+        return IdentityLayer(name=f"{layer.name}_act")(x)
 
     def setup(self):
         """Initializes the CNN Q-Network."""
@@ -62,14 +75,19 @@ class CNNQ(nn.Module):
         x = jnp.transpose(x, (0, 2, 3, 1))
         q = self.conv1(x)
         q = self.activation_func(q)
+        q = self._record_activations(q, self.conv1)
         q = self.conv2(q)
         q = self.activation_func(q)
+        q = self._record_activations(q, self.conv2)
         q = self.conv3(q)
         q = self.activation_func(q)
+        q = self._record_activations(q, self.conv3)
         q = q.reshape((q.shape[0], -1))  # flatten
         q = self.dense(q)
         q = self.activation_func(q)
-        return self.out_layer(q)
+        q = self._record_activations(q, self.dense)
+        q = self.out_layer(q)
+        return self._record_activations(q, self.out_layer)
 
 
 class MLPQ(nn.Module):
@@ -79,6 +97,9 @@ class MLPQ(nn.Module):
     activation: str = "tanh"
     hidden_size: int = 64
     discrete: bool = True
+
+    def _record_activations(self, x, layer):
+        return IdentityLayer(name=f"{layer.name}_act")(x)
 
     def setup(self):
         """Initializes the MLP Q-Network."""
@@ -103,10 +124,14 @@ class MLPQ(nn.Module):
             self.action_dim, kernel_init=orthogonal(1.0), bias_init=constant(0.0)
         )
 
+    @nn.compact
     def __call__(self, x):
         """Applies the MLP to the input."""
         q = self.dense0(x)
         q = self.activation_func(q)
+        q = self._record_activations(q, self.dense0)
         q = self.dense1(q)
         q = self.activation_func(q)
-        return self.out_layer(q)
+        q = self._record_activations(q, self.dense1)
+        q = self.out_layer(q)
+        return self._record_activations(q, self.out_layer)

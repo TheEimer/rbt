@@ -6,6 +6,7 @@ from .dqn import (
     DQNTrainingResult,
     DQNTrainReturnT,
 )
+from .reset_dqn import ResetDQN
 
 __all__ = [
     "DQN",
@@ -14,4 +15,5 @@ __all__ = [
     "DQNMetrics",
     "DQNTrainReturnT",
     "DQNState",
+    "ResetDQN",
 ]
