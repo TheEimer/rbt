@@ -119,7 +119,7 @@ class ResetDQN(Algorithm):
 
         self.eval_eps = eval_eps
         self.manual_epsilon = manual_epsilon
-        self.epsilon = jnp.array(OmegaConf.to_container(epsilon, resolve=True))
+        self.epsilon = jnp.array(epsilon)
         self.offline_update_fraction = offline_update_fraction
         self.manual_offline_updates = manual_offline_updates
         self.manual_recycling = manual_recycling

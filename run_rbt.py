@@ -15,6 +15,7 @@ import jax
 from arlbench.autorl import AutoRLEnv
 from arlbench.core.environments import make_env
 from arlbench.core.algorithms import DQN
+from arlbench.utils.dict_helpers import to_dict
 
 from smac import MultiFidelityFacade as MFFacade
 from smac import Scenario
@@ -28,6 +29,9 @@ from hydra.utils import get_original_cwd
 import jax.numpy as jnp
 from smac.runhistory.dataclasses import TrialValue
 from omegaconf import OmegaConf
+import numpy as np
+
+
 OmegaConf.register_new_resolver("eval", eval)
 
 if TYPE_CHECKING:
@@ -36,7 +40,10 @@ if TYPE_CHECKING:
 
 def run(cfg: DictConfig, logger: logging.Logger):
     # Initialize environment with general config
-    env = AutoRLEnv(cfg.autorl)
+    autorl_cfg = OmegaConf.to_container(cfg.autorl, resolve=True)
+    assert isinstance(autorl_cfg, dict)
+
+    env = AutoRLEnv(config=autorl_cfg)
 
     # Reset environment and run for 10 steps
     _ = env.reset()
@@ -47,7 +54,9 @@ def run(cfg: DictConfig, logger: logging.Logger):
     full_evals = {}
     td_errors = {}
     iteration = 0
-    hp_config = cfg.hp_config
+
+    hp_config = to_dict(cfg.hp_config)
+
     while iteration < cfg.n_iterations and not done:
         _, objectives, te, tr, _ = env.step(hp_config)
         train_rewards.append(objectives)
@@ -91,7 +100,10 @@ def run(cfg: DictConfig, logger: logging.Logger):
             if current_budget == 10000:
                 current_budget = config.budget
             budget = config.budget
-            env._hpo_config = config.config
+            hp_config = to_dict(config.config)
+
+            env._hpo_config = hp_config
+
             train_state, _ = env._algorithm.recycle_neurons(env._algorithm_state.runner_state.train_state, env._algorithm_state.buffer_state, env._algorithm_state.runner_state.global_step, rng, True)
             rng, train_state, _, metrics = env._algorithm.fit_offline(
                 rng,
@@ -111,7 +123,6 @@ def run(cfg: DictConfig, logger: logging.Logger):
             if cfg.full_eval:
                 performance = eval
             else:
-                import numpy as np
                 performance = np.abs(metrics.td_error.mean())
 
             td_errors[iteration].append(metrics.td_error.mean())
@@ -120,7 +131,8 @@ def run(cfg: DictConfig, logger: logging.Logger):
             smac.tell(config, smac_return)
             if incumbent_performance is None or performance < incumbent_performance:
                 incumbent_performance = performance
-                incumbent_config = config.config
+                incumbent_config = to_dict(config.config)
+
                 shutil.rmtree(incumbent_path, ignore_errors=True)
                 incumbent_path = env._save(tag=f"rbt_incumbent_iteration_{iteration}")
 

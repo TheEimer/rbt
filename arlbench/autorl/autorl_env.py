@@ -23,6 +23,7 @@ from arlbench.core.algorithms import (
 )
 from arlbench.core.environments import make_env
 from arlbench.utils import config_space_to_gymnasium_space
+from arlbench.utils.dict_helpers import to_dict
 
 from .checkpointing import Checkpointer
 from .objectives import OBJECTIVES, Objective
@@ -70,7 +71,7 @@ class AutoRLEnv(gymnasium.Env):
     _get_obs: Callable[[], np.ndarray]
     _algorithm_state: AlgorithmState | None
     _train_result: TrainResult | None
-    _hpo_config: Configuration
+    _hpo_config: dict
     _total_training_steps: int
 
     @property
@@ -312,8 +313,8 @@ class AutoRLEnv(gymnasium.Env):
         info = {}
 
         # Apply changes to current hyperparameter configuration and reinstantiate algorithm
-        if isinstance(action, dict):
-            action = Configuration(self.config_space, action)
+        if isinstance(action, Configuration):
+            action = to_dict(action)
         self._hpo_config = action
 
         seed = seed if seed else self._seed
