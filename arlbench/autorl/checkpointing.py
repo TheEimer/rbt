@@ -7,6 +7,7 @@ import warnings
 from collections.abc import Callable
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
+from pathlib import Path
 
 import jax
 import jax.numpy as jnp
@@ -109,7 +110,8 @@ class Checkpointer:
             checkpoint = ["all"]
 
         checkpoint_name = autorl_config["checkpoint_name"]
-        checkpoint_dir = os.path.join(autorl_config["checkpoint_dir"], checkpoint_name)
+        checkpoint_dir = Path(autorl_config["checkpoint_dir"]).resolve() / checkpoint_name
+        checkpoint_dir = str(checkpoint_dir)
         os.makedirs(checkpoint_dir, exist_ok=True)
 
         # Structure:

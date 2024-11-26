@@ -10,6 +10,7 @@ import jax
 import numpy as np
 import pandas as pd
 from ConfigSpace import Configuration, ConfigurationSpace
+from arlbench.utils.visualize_buffer import visualize_buffer
 
 from arlbench.core.algorithms import (
     DQN,
@@ -159,6 +160,8 @@ class AutoRLEnv(gymnasium.Env):
         self._state_features = self._get_state_features()
 
         self._observation_space = self._get_obs_space()
+
+        self._n_rendered_frames = 0
 
     def _get_objectives(self) -> list[Objective]:
         """Maps the objectives as list of strings to a sorted list of the actual objective classes.
@@ -371,6 +374,13 @@ class AutoRLEnv(gymnasium.Env):
             checkpoint = self._save()
             self._checkpoints += [checkpoint]
             info["checkpoint"] = checkpoint
+
+        self._n_rendered_frames += visualize_buffer(
+            buffer_state=self._algorithm_state.buffer_state,
+            env=self._env,
+            tag=f"iteration_{self._c_step - 1}",
+            n_rendered_frames=self._n_rendered_frames,
+        )
 
         return obs, objectives, False, self._done, info
 

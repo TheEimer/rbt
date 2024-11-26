@@ -32,9 +32,12 @@ autorl:
   cnn_policy: ${environment.cnn_policy}
   nas_config: ${nas_config}
   n_total_timesteps: ${eval:'${environment.n_total_timesteps} // ${n_iterations}'}
-  checkpoint: []
+  # checkpoint: []
+  # TODO I guess we want to checkpoint the network weights once they are trained?
+  # Also, the buffer is re-initialized if we don't include it in the checkpoint
+  checkpoint: ["all"]
   checkpoint_name: "default_checkpoint"
-  checkpoint_dir: "/tmp"
+  checkpoint_dir: "./checkpoints"
   state_features: []
   objectives: ["reward_mean"]
   optimize_objectives: "upper"

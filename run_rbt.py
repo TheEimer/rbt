@@ -31,7 +31,6 @@ from smac.runhistory.dataclasses import TrialValue
 from omegaconf import OmegaConf
 import numpy as np
 
-
 OmegaConf.register_new_resolver("eval", eval)
 
 if TYPE_CHECKING:
@@ -62,7 +61,9 @@ def run(cfg: DictConfig, logger: logging.Logger):
         train_rewards.append(objectives)
         done = te or tr
 
-        save_path = env._save(tag=f"rbt_iteration_{iteration}")
+        tag = f"rbt_iteration_{iteration}"
+
+        save_path = env._save(tag=tag)
         rng = jax.random.key(cfg.autorl.seed)
 
         # TODO: what happens if I keep asking after that? Do I need a reset?

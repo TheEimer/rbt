@@ -8,8 +8,11 @@ import gymnax
 import gymnax.environments.spaces
 import jax
 import jax.numpy as jnp
-
+import numpy as np
 from .autorl_env import Environment
+import pickle
+import orbax.checkpoint as ocp
+from pathlib import Path
 
 if TYPE_CHECKING:
     from chex import PRNGKey
@@ -24,7 +27,7 @@ class XLandEnv(Environment):
         env_kwargs: dict[str, Any] | None = None,
         cnn_policy: bool = False,
     ):
-        """Creates an xland environment for JAX-based RL training.
+        """Creates an XLand environment for JAX-based RL training.
 
         Args:
             env_name (str): Name/id of the brax environment.
@@ -40,7 +43,7 @@ class XLandEnv(Environment):
             import xminigrid
             from xminigrid.experimental.img_obs import RGBImgObservationWrapper
             from xminigrid.wrappers import GymAutoResetWrapper
-        except ImportError:
+        except ImportError as e:
             raise ValueError(
                 "Failed to import XLand. Please make sure the package is installed."
             )
@@ -52,6 +55,7 @@ class XLandEnv(Environment):
         super().__init__(env_name, env, n_envs)
 
         self.env_params = env_params
+        self.stored_timesteps = []
 
     @functools.partial(jax.jit, static_argnums=0)
     def reset(self, rng: PRNGKey):
@@ -69,6 +73,20 @@ class XLandEnv(Environment):
         # (as referred to in the xland documentation)
         timestep = jax.vmap(self._env.step, in_axes=(None, 0, 0))(
             self.env_params, env_state, action
+        )
+
+        def _save_individual_timestep(timestep_batch):
+            # We need to split the timestep batch into individual timesteps for each env
+            timestep_batch = [jax.tree_util.tree_map(lambda x: x[i], timestep_batch) for i in range(self.n_envs)]
+
+            for single_timestep in timestep_batch:
+                self.stored_timesteps.extend(single_timestep)
+
+        # For debug purposes, save the timestep
+        jax.experimental.io_callback(
+            _save_individual_timestep,
+            None,
+            (timestep,),
         )
 
         return timestep, (timestep.observation, timestep.reward, timestep.last(), {})
@@ -94,3 +112,4 @@ class XLandEnv(Environment):
             high=jnp.array([s - 1 for s in obs_shape]),
             shape=self._env.observation_shape(self.env_params),
         )
+
