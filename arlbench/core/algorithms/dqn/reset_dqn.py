@@ -935,6 +935,7 @@ class ResetDQN(Algorithm):
         train_state = train_state.replace(params=params, opt_state=opt_state)
         return train_state, recycled
 
+    @functools.partial(jax.jit, static_argnums=0, donate_argnums=(2,))
     def fit_offline(self, rng, buffer_state, train_state, normalizer_state, global_step, recycled, steps):
         def do_update(
             rng: chex.PRNGKey,
