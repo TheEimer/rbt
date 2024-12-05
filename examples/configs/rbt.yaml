@@ -3,6 +3,7 @@ defaults:
   - /algorithm: redo_dqn
   - /environment: cc_cartpole
   - search_space: dqn
+  - cluster: local
 
 hydra:
   run:
