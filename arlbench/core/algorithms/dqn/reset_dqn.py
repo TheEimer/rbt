@@ -935,8 +935,8 @@ class ResetDQN(Algorithm):
         train_state = train_state.replace(params=params, opt_state=opt_state)
         return train_state, recycled
 
-    @functools.partial(jax.jit, static_argnums=0, donate_argnums=(2,))
-    def fit_offline(self, rng, buffer_state, train_state, normalizer_state, global_step, recycled, steps):
+    @functools.partial(jax.jit, static_argnums=(0, 1,), donate_argnums=(2,))
+    def fit_offline(self, steps, rng, buffer_state, train_state, normalizer_state, global_step, recycled):
         def do_update(
             rng: chex.PRNGKey,
             train_state: DQNTrainState,
@@ -1005,7 +1005,7 @@ class ResetDQN(Algorithm):
                 )
                 new_priorities = jnp.abs(td_error) + self.hpo_config["buffer_epsilon"]
                 buffer_state = self.buffer.set_priorities(
-                    buffer_state, batch.indices, new_priorities
+                    buffer_state, batch.indices, new_priorities   
                 )
 
                 return (
@@ -1046,20 +1046,15 @@ class ResetDQN(Algorithm):
             Returns:
                 tuple[chex.PRNGKey, DQNTrainState, RunningStatisticsState, PrioritisedTrajectoryBufferState, DQNMetrics]: Input parameters and dummy metrics.
             """
-            loss = jnp.array(
-                    [((jnp.array([0]) - jnp.array([0])) ** 2).mean()]
-                    * steps
-                )
-            td_error = jnp.array(
-                    [
-                        [[1] * self.hpo_config["buffer_batch_size"]]
-                        * steps
-                    ]
-                ).mean(axis=0)
+            loss = jax.lax.broadcast(
+                ((jnp.array([0]) - jnp.array([0])) ** 2).mean(), 
+                (steps,)
+            )
+            td_error = jnp.ones((steps, self.hpo_config["buffer_batch_size"]))
             grads = jax.tree_map(
-                    lambda x: jnp.stack([x] * steps),
-                    train_state.params,
-                )
+                lambda x: jnp.broadcast_to(x, (steps,) + x.shape),
+                train_state.params,
+            )
             return (
                 rng,
                 train_state,
@@ -1067,24 +1062,22 @@ class ResetDQN(Algorithm):
                 DQNMetrics(loss=loss, td_error=td_error, grads=grads),
             )
 
-        loss = jnp.array(
-                    [((jnp.array([0]) - jnp.array([0])) ** 2).mean()]
-                    * steps
-                )
-        td_error = jnp.array(
-                    [
-                        [[1] * self.hpo_config["buffer_batch_size"]]
-                        * steps
-                    ]
-                ).mean(axis=0)
+        loss = jax.lax.broadcast(
+            ((jnp.array([0]) - jnp.array([0])) ** 2).mean(), 
+            (steps,)
+        )
+        td_error = jnp.ones(
+            (steps, self.hpo_config["buffer_batch_size"])
+        )
         grads = jax.tree_map(
-                    lambda x: jnp.stack([x] * steps),
-                    train_state.params,
-                )
+            lambda x: jnp.broadcast_to(x, (steps,) + x.shape),
+            train_state.params,
+        )
         metrics = DQNMetrics(loss=loss, td_error=td_error, grads=grads)
         stepped_far = global_step > np.ceil(self.hpo_config["learning_starts"] // self.env.n_envs)
-        for _ in range(steps):
-                rng, train_state, buffer_state, metrics = jax.lax.cond(
+        def loop_body(i, carry):
+            rng, train_state, buffer_state, metrics = carry
+            rng, train_state, buffer_state, metrics = jax.lax.cond(
                 stepped_far & recycled,
                 do_update,
                 dont_update,
@@ -1093,6 +1086,11 @@ class ResetDQN(Algorithm):
                 normalizer_state,
                 buffer_state,
             )
+            return rng, train_state, buffer_state, metrics
+
+        rng, train_state, buffer_state, metrics = jax.lax.fori_loop(
+            0, steps, loop_body, (rng, train_state, buffer_state, metrics)
+        )
         return rng, train_state, buffer_state, metrics
 
     def _sample_batch_for_statistics(self, rng, buffer_state):
