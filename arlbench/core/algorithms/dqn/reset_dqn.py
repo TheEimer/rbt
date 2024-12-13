@@ -988,13 +988,15 @@ class ResetDQN(Algorithm):
                 else:
                     last_obs = experience.last_obs
                     obs = experience.obs
-                if self.hpo_config["buffer_prio_sampling"]:
-                    is_weights = jnp.power(
-                        (1.0 / batch.priorities), self.hpo_config["buffer_beta"]
-                    )
-                    is_weights = is_weights / jnp.max(is_weights)
-                else:
-                    is_weights = jnp.ones_like(batch.priorities)
+                # if self.hpo_config["buffer_prio_sampling"]:
+                #     is_weights = jnp.power(
+                #         (1.0 / batch.priorities), self.hpo_config["buffer_beta"]
+                #     )
+                #     is_weights = is_weights / jnp.max(is_weights)
+                # else:
+                #     is_weights = jnp.ones_like(batch.priorities)
+
+                is_weights = jnp.ones(len(batch))
                 train_state, loss, td_error, grads = self.update(
                     train_state,
                     last_obs,
@@ -1004,10 +1006,10 @@ class ResetDQN(Algorithm):
                     experience.reward,
                     experience.done,
                 )
-                new_priorities = jnp.abs(td_error) + self.hpo_config["buffer_epsilon"]
-                buffer_state = self.buffer.set_priorities(
-                    buffer_state, batch.indices, new_priorities   
-                )
+                # new_priorities = jnp.abs(td_error) + self.hpo_config["buffer_epsilon"]
+                # buffer_state = self.buffer.set_priorities(
+                #     buffer_state, batch.indices, new_priorities   
+                # )
 
                 return (
                     rng,

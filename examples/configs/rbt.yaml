@@ -36,7 +36,7 @@ autorl:
   # checkpoint: []
   # TODO I guess we want to checkpoint the network weights once they are trained?
   # Also, the buffer is re-initialized if we don't include it in the checkpoint
-  checkpoint: ["opt_state", "params", "buffer"]
+  checkpoint: ["opt_state", "params", "target_params"]
   checkpoint_name: "default_checkpoint"
   checkpoint_dir: "./checkpoints"
   state_features: []

@@ -65,6 +65,15 @@ def run(cfg: DictConfig, logger: logging.Logger):
         tag = f"rbt_iteration_{iteration}"
 
         save_path = env._save(tag=tag)
+        assert env._algorithm_state is not None
+
+        # We need to backup the buffer state to assign it again
+        # after loading the checkpoint. As the buffer has a custom
+        # state containing the train and validation splits, we 
+        # cannot use the default state that is used when loading
+        # a checkpoint
+        buffer_state = env._algorithm_state.buffer_state
+
         rng = jax.random.key(cfg.autorl.seed)
 
         # TODO: what happens if I keep asking after that? Do I need a reset?
@@ -97,7 +106,7 @@ def run(cfg: DictConfig, logger: logging.Logger):
         current_budget = 10000
         n_configs = 0
         while n_configs < cfg.n_configs_per_iteration:
-            env._load(save_path, seed=cfg.autorl.seed)
+            env._load(save_path, seed=cfg.autorl.seed, buffer_state=buffer_state)
             config = smac.ask()
             if current_budget == 10000:
                 current_budget = config.budget

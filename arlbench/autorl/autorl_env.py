@@ -429,7 +429,7 @@ class AutoRLEnv(gymnasium.Env):
             tag=tag,
         )
 
-    def _load(self, checkpoint_path: str, seed: int) -> AlgorithmState:
+    def _load(self, checkpoint_path: str, seed: int, **custom_checkpoint_data) -> AlgorithmState:
         """Load the algorithm state from a checkpoint.
 
         Args:
@@ -446,6 +446,8 @@ class AutoRLEnv(gymnasium.Env):
             ),
             algorithm_kw_args,
         ) = Checkpointer.load(checkpoint_path, algorithm_state)
+        for k, v in custom_checkpoint_data.items():
+            algorithm_kw_args[k] = v
         return self._algorithm.init(init_rng, **algorithm_kw_args)
 
     @property
