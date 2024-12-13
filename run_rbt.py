@@ -16,7 +16,7 @@ from arlbench.autorl import AutoRLEnv
 from arlbench.core.environments import make_env
 from arlbench.core.algorithms import DQN
 from arlbench.utils.dict_helpers import to_dict
-from arlbench.utils.sbv import split_buffer
+from arlbench.utils.sbv import compute_vbs
 
 from smac import MultiFidelityFacade as MFFacade
 from smac import Scenario
@@ -106,14 +106,6 @@ def run(cfg: DictConfig, logger: logging.Logger):
 
             env._hpo_config = hp_config
 
-            # TODO split buffer into train-validation
-            # split_buffer(
-            #     buffer_state=env._algorithm_state.buffer_state,
-            #     random_state=cfg.autorl.seed,
-            #     hpo_config=hp_config,
-            #     validation_size=0.2,
-            # )
-
             train_state, _ = env._algorithm.recycle_neurons(env._algorithm_state.runner_state.train_state, env._algorithm_state.buffer_state, env._algorithm_state.runner_state.global_step, rng, True)
             rng, train_state, _, metrics = env._algorithm.fit_offline(
                 rng,
@@ -134,6 +126,9 @@ def run(cfg: DictConfig, logger: logging.Logger):
                 performance = eval
             else:
                 performance = np.abs(metrics.td_error.mean())
+
+            # TODO compute VBS
+            vbs_value = compute_vbs(env=env)
 
             td_errors[iteration].append(metrics.td_error.mean())
 

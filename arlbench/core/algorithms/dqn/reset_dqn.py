@@ -32,8 +32,8 @@ from arlbench.core.algorithms.neuron_recycler import (
     NeuronRecycler,
     NeuronRecyclerScheduled,
 )
-from arlbench.core.algorithms.prioritised_item_buffer import (
-    make_prioritised_item_buffer,
+from flashbax import (
+    make_train_val_item_buffer,
 )
 
 from .dqn import (
@@ -89,6 +89,7 @@ class ResetDQN(Algorithm):
         offline_update_fraction: float = 0.1,
         manual_offline_updates: bool = False,
         manual_recycling: bool = False,
+        validation_size: float = 0.2
     ) -> None:
         """Creates a ReDo DQN algorithm instance.
 
@@ -123,6 +124,7 @@ class ResetDQN(Algorithm):
         self.offline_update_fraction = offline_update_fraction
         self.manual_offline_updates = manual_offline_updates
         self.manual_recycling = manual_recycling
+        self.validation_size = validation_size
 
         # For the network, we need the properties of the action space
         action_size, discrete = self.action_type
@@ -134,27 +136,25 @@ class ResetDQN(Algorithm):
             hidden_size=self.nas_config["hidden_size"],
         )
 
-        self.buffer = make_prioritised_item_buffer(
+        self.buffer = make_train_val_item_buffer(
             max_length=self.hpo_config["buffer_size"],
             min_length=self.hpo_config["buffer_batch_size"],
             sample_batch_size=self.hpo_config["buffer_batch_size"],
             add_batches=True,
             add_sequences=False,
-            priority_exponent=self.hpo_config["buffer_alpha"],
-            device=jax.default_backend(),
         )
 
-        # This is how we can turn the prioritized sampling on/off for dynamic HPO
-        # We always use the prioritized replay buffer, but if "buffer_prio_sampling"
-        # is disabled, we replace the sampling function by the uniform sampling
-        if self.hpo_config["buffer_prio_sampling"] is False:
-            sample_fn = functools.partial(
-                uniform_sample,
-                batch_size=self.hpo_config["buffer_batch_size"],
-                sequence_length=1,
-                period=1,
-            )
-            self.buffer = self.buffer.replace(sample=sample_fn)
+        # # This is how we can turn the prioritized sampling on/off for dynamic HPO
+        # # We always use the prioritized replay buffer, but if "buffer_prio_sampling"
+        # # is disabled, we replace the sampling function by the uniform sampling
+        # if self.hpo_config["buffer_prio_sampling"] is False:
+        #     sample_fn = functools.partial(
+        #         uniform_sample,
+        #         batch_size=self.hpo_config["buffer_batch_size"],
+        #         sequence_length=1,
+        #         period=1,
+        #     )
+        #     self.buffer = self.buffer.replace(sample=sample_fn)
 
         self.weight_recycler_config = weight_recycler_config
         if self.weight_recycler_config is None:
@@ -325,7 +325,7 @@ class ResetDQN(Algorithm):
                 reward=_reward[0],
                 done=_done[0],
             )
-            buffer_state = self.buffer.init(_timestep)
+            buffer_state = self.buffer.init(_timestep, val_size=self.validation_size, seed=int(jax.random.randint(rng, (1,), 0, int(1e6))[0]))
 
         rng, init_rng = jax.random.split(rng)
         if network_params is None:
@@ -797,13 +797,14 @@ class ResetDQN(Algorithm):
                 else:
                     last_obs = experience.last_obs
                     obs = experience.obs
-                if self.hpo_config["buffer_prio_sampling"]:
-                    is_weights = jnp.power(
-                        (1.0 / batch.priorities), self.hpo_config["buffer_beta"]
-                    )
-                    is_weights = is_weights / jnp.max(is_weights)
-                else:
-                    is_weights = jnp.ones_like(batch.priorities)
+                # if self.hpo_config["buffer_prio_sampling"]:
+                #     is_weights = jnp.power(
+                #         (1.0 / batch.priorities), self.hpo_config["buffer_beta"]
+                #     )
+                #     is_weights = is_weights / jnp.max(is_weights)
+                # else:
+                #     is_weights = jnp.ones_like(batch.priorities)
+                is_weights = jnp.ones(len(batch))
                 train_state, loss, td_error, grads = self.update(
                     train_state,
                     last_obs,
@@ -813,10 +814,10 @@ class ResetDQN(Algorithm):
                     experience.reward,
                     experience.done,
                 )
-                new_priorities = jnp.abs(td_error) + self.hpo_config["buffer_epsilon"]
-                buffer_state = self.buffer.set_priorities(
-                    buffer_state, batch.indices, new_priorities
-                )
+                # new_priorities = jnp.abs(td_error) + self.hpo_config["buffer_epsilon"]
+                # buffer_state = self.buffer.set_priorities(
+                #     buffer_state, batch.indices, new_priorities
+                # )
 
                 if not self.track_metrics:
                     loss = None
@@ -977,7 +978,7 @@ class ResetDQN(Algorithm):
                 """
                 rng, train_state, buffer_state = carry
                 rng, batch_sample_rng = jax.random.split(rng)
-                batch = self.buffer.sample(buffer_state, batch_sample_rng)
+                batch = self.buffer.sample_train(buffer_state, batch_sample_rng)
                 experience = batch.experience
                 if self.hpo_config["normalize_observations"]:
                     last_obs = running_statistics.normalize(
