@@ -108,13 +108,13 @@ def run(cfg: DictConfig, logger: logging.Logger):
 
             train_state, _ = env._algorithm.recycle_neurons(env._algorithm_state.runner_state.train_state, env._algorithm_state.buffer_state, env._algorithm_state.runner_state.global_step, rng, True)
             rng, train_state, _, metrics = env._algorithm.fit_offline(
+                int(budget),
                 rng,
                 env._algorithm_state.buffer_state,
                 train_state,
                 env._algorithm_state.runner_state.normalizer_state,
                 env._algorithm_state.runner_state.global_step,
                 True,
-                int(budget),
             )
             runner_state = env._algorithm_state.runner_state._replace(train_state=train_state)
             env.algorithm_state = env._algorithm_state._replace(runner_state=runner_state)
