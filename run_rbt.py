@@ -16,7 +16,7 @@ from arlbench.autorl import AutoRLEnv
 from arlbench.core.environments import make_env
 from arlbench.core.algorithms import DQN
 from arlbench.utils.dict_helpers import to_dict
-from arlbench.utils.sbv import compute_sbv
+from arlbench.utils.sbv import compute_msbe
 
 from smac import MultiFidelityFacade as MFFacade
 from smac import Scenario
@@ -131,13 +131,12 @@ def run(cfg: DictConfig, logger: logging.Logger):
             
             eval = -env.eval(cfg.n_eval_episodes).mean()
             full_evals[iteration].append(eval)
-            if cfg.full_eval:
+            if cfg.eval_criterion == "eval_return":
                 performance = eval
-            else:
+            elif cfg.eval_criterion == "td_error":
                 performance = np.abs(metrics.td_error.mean())
-
-            # TODO compute VBS
-            vbs_value = compute_sbv(env=env)
+            elif cfg.eval_criterion == "msbe":
+                performance = compute_msbe(env=env)
 
             td_errors[iteration].append(metrics.td_error.mean())
 

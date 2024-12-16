@@ -17,7 +17,7 @@ load_checkpoint: ""
 
 n_configs_per_iteration: 72
 n_iterations: 10
-full_eval: true
+eval_criterion: eval_return
 n_eval_episodes: 10
 hb_eta: 2
 

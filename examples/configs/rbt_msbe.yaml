@@ -17,7 +17,7 @@ load_checkpoint: ""
 
 n_configs_per_iteration: 22
 n_iterations: 10
-eval_criterion: td_error
+eval_criterion: msbe
 n_eval_episodes: 10
 hb_eta: 3
 
