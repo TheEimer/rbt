@@ -49,9 +49,26 @@ def visualize_xland(
     return rendered_frames
 
 
+def get_obs_xland(
+        env: XLandEnv,
+    ) -> list[np.ndarray]:
+    """Extract observartions from the buffer."""
+    obs = []
+
+    for timestep in env.stored_timesteps:   
+        obs.append(timestep.state.agent)
+
+    return np.array(obs)
+
+
 ENV_RENDERERS = {
     "GymnaxEnv": visualize_gym,
     "XLandEnv": visualize_xland
+}
+
+OBS_EXTRACTORS = {
+    "GymnaxEnv": None,
+    "XLandEnv": get_obs_xland
 }
 
 
@@ -65,8 +82,19 @@ def visualize_buffer(
     if isinstance(env, Wrapper):
         env = env._env
 
-    original_obs_shape = env.observation_space.shape
-    observations = np.array(buffer_state.experience.obs).reshape(-1, *original_obs_shape)
+    env_type = type(env).__name__
+
+    extractor_func = OBS_EXTRACTORS[env_type]
+    
+    if extractor_func:
+        observations = extractor_func(env)
+    else:
+        original_obs_shape = env.observation_space.shape
+        observations = np.array(buffer_state.experience.obs).reshape(-1, *original_obs_shape)
+
+    np.save(f"buffer_observations_{tag}.npy", observations)
+
+    return 0
 
     env_type = type(env).__name__
 

@@ -7,7 +7,10 @@ hydra:
     partition: ai,tnt
     cpus_per_task: 32
     gres: null
-    timeout_min: 10080  # 7 days
-    mem_gb: 64
+    timeout_min: 720  # 12 hours
+    mem_gb: 120
     setup:
+      - module load Miniforge3
+      - conda activate rbt
       - export JAX_PLATFORM_NAME=cpu
+      - export JAX_PLATFORMS=cpu

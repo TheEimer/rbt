@@ -89,7 +89,7 @@ class ResetDQN(Algorithm):
         offline_update_fraction: float = 0.1,
         manual_offline_updates: bool = False,
         manual_recycling: bool = False,
-        validation_size: float = 0.2
+        validation_size: float = 0.1
     ) -> None:
         """Creates a ReDo DQN algorithm instance.
 
@@ -192,7 +192,7 @@ class ResetDQN(Algorithm):
                     "learning_rate", (1e-6, 0.1), default=3e-4, log=True
                 ),
                 "gamma": Float("gamma", (0.8, 1.0), default=0.99),
-                "tau": Float("tau", (0.01, 1.0), default=1.0),
+                "tau": Float("tau", (0.01, 1.0), default=0.1),
                 "initial_epsilon": Float("initial_epsilon", (0.5, 1.0), default=1.0),
                 "target_epsilon": Float("target_epsilon", (0.001, 0.2), default=0.05),
                 "exploration_fraction": Float("exploration_fraction", (0.005, 0.5), default=0.1),
@@ -203,7 +203,7 @@ class ResetDQN(Algorithm):
                 "gradient steps": Integer("gradient_steps", (1, 256), default=1),
                 "learning_starts": Integer("learning_starts", (0, 32768), default=1024),
                 "target_update_interval": Integer(
-                    "target_update_interval", (1, 2000), default=1000
+                    "target_update_interval", (1, 2000), default=1
                 ),
                 "normalize_observations": Categorical(
                     "normalize_observations", [True, False], default=False
@@ -906,7 +906,7 @@ class ResetDQN(Algorithm):
         if not self.manual_offline_updates:
             offline_steps = int(self.weight_recycler.reset_period * self.offline_update_fraction * self.hpo_config["gradient_steps"])
             if offline_steps > 0:
-                rng, train_state, buffer_state, metrics = self.fit_offline(rng, buffer_state, train_state, normalizer_state, global_step, recycled, offline_steps)
+                rng, train_state, buffer_state, metrics = self.fit_offline(offline_steps, rng, buffer_state, train_state, normalizer_state, global_step, recycled)
 
         runner_state = DQNRunnerState(
             rng=rng,
@@ -1090,10 +1090,21 @@ class ResetDQN(Algorithm):
                 buffer_state,
             )
             return rng, train_state, buffer_state, metrics
+        
+        # TODO do we want to update the target network here?
+        # if self.hpo_config["use_target_network"]:
+        #     train_state = train_state.replace(
+        #         target_params=optax.incremental_update(
+        #             train_state.params,
+        #             train_state.target_params,
+        #             self.hpo_config["tau"],
+        #         )
+        #     )
 
         rng, train_state, buffer_state, metrics = jax.lax.fori_loop(
             0, steps, loop_body, (rng, train_state, buffer_state, metrics)
         )
+
         return rng, train_state, buffer_state, metrics
 
     def _sample_batch_for_statistics(self, rng, buffer_state):

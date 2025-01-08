@@ -17,8 +17,8 @@ hp_config:
   normalize_observations: false
   train_freq: 4
   use_target_network: true
-  target_update_interval: 1000
-  tau: 1.0
+  target_update_interval: 1
+  tau: 0.1
 nas_config:
   activation: tanh
   hidden_size: 64

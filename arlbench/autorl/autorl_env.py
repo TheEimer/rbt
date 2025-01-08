@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 from ConfigSpace import Configuration, ConfigurationSpace
 from arlbench.utils.visualize_buffer import visualize_buffer
+from omegaconf import OmegaConf, DictConfig
 
 from arlbench.core.algorithms import (
     DQN,
@@ -96,6 +97,9 @@ class AutoRLEnv(gymnasium.Env):
         self.algorithm_kwargs = {}
 
         if config:
+            if isinstance(config, DictConfig):
+                config = OmegaConf.to_container(config, resolve=True)
+
             for k, v in config.items():
                 if k in DEFAULT_AUTO_RL_CONFIG:
                     self._config[k] = v

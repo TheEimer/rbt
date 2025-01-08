@@ -3,18 +3,19 @@ defaults:
   - /algorithm: dqn
   - /environment: cc_cartpole
   - search_space: dqn_no_cond
+  - cluster: local
   - override hydra/sweeper: HyperPBT
 
 hydra:
   sweeper:
-    budget: ${eval:'${environment.n_total_timesteps} * ${pbt_iterations}'}
+    budget: ${eval:'${environment.n_total_timesteps} * ${population_size}'}
     budget_variable: autorl.n_total_timesteps
     loading_variable: load
     saving_variable: save
     sweeper_kwargs:
       optimizer_kwargs:
-        population_size: 8
-        config_interval: 1e4
+        population_size: ${population_size}
+        config_interval: ${eval:'${environment.n_total_timesteps} // 10'}
         seed: ${autorl.seed}
       checkpoint_tf: true
       load_tf: true
@@ -31,6 +32,7 @@ hydra:
 jax_enable_x64: false
 load_checkpoint: ""
 pbt_iterations: 10
+population_size: 8
 save: false
 load: false
 
