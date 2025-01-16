@@ -18,7 +18,7 @@ from arlbench.core.algorithms import DQN, ResetDQN
 from arlbench.utils.dict_helpers import to_dict
 from arlbench.utils.sbv import compute_msbe, get_train_data, get_val_data
 
-from smac import MultiFidelityFacade as MFFacade
+from smac import MultiFidelityFacade as MFFacade, RandomFacade
 from smac import Scenario
 from smac.intensifier.hyperband import Hyperband
 from flax.training import checkpoints
@@ -123,18 +123,32 @@ def run(cfg: DictConfig, logger: logging.Logger):
         if prev_incumbent_config is not None:
             additional_configs = [Configuration(search_space, values=prev_incumbent_config)]
         else:
-            additional_configs = None
+            additional_configs = []
         
         # Create our SMAC object and pass the scenario and the train method
-        initial_design = MFFacade.get_initial_design(scenario=scenario, additional_configs=additional_configs)
-        smac = MFFacade(
-            scenario,
-            dummy,
-            intensifier=intensifier,
-            overwrite=True,
-            logging_level=False,
-            initial_design=initial_design
-        )
+        if "optimizer" in cfg and cfg.optimizer == "random":
+            initial_design = RandomFacade.get_initial_design(scenario=scenario, additional_configs=additional_configs)
+            smac = MFFacade(
+                scenario=scenario,
+                target_function=dummy,
+                intensifier=intensifier,
+                model=RandomFacade.get_model(scenario),
+                acquisition_function=RandomFacade.get_acquisition_function(scenario),
+                acquisition_maximizer=RandomFacade.get_acquisition_maximizer(scenario),
+                initial_design=initial_design,
+                overwrite=True,
+                logging_level=False,
+            )
+        else:
+            initial_design = MFFacade.get_initial_design(scenario=scenario, additional_configs=additional_configs)
+            smac = MFFacade(
+                scenario=scenario,
+                target_function=dummy,
+                intensifier=intensifier,
+                overwrite=True,
+                logging_level=False,
+                initial_design=initial_design
+            )
         logger.info("Done.")
 
         incumbent_path = None

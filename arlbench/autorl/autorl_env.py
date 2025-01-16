@@ -56,6 +56,7 @@ DEFAULT_AUTO_RL_CONFIG = {
     "n_total_timesteps": 1e5,
     "n_eval_steps": 100,
     "n_eval_episodes": 10,
+    "visualize_buffer": False
 }
 
 
@@ -379,12 +380,13 @@ class AutoRLEnv(gymnasium.Env):
             self._checkpoints += [checkpoint]
             info["checkpoint"] = checkpoint
 
-        self._n_rendered_frames += visualize_buffer(
-            buffer_state=self._algorithm_state.buffer_state,
-            env=self._env,
-            tag=f"iteration_{self._c_step - 1}",
-            n_rendered_frames=self._n_rendered_frames,
-        )
+        if self.config.get("visualize_buffer", False):
+            self._n_rendered_frames += visualize_buffer(
+                buffer_state=self._algorithm_state.buffer_state,
+                env=self._env,
+                tag=f"iteration_{self._c_step - 1}",
+                n_rendered_frames=self._n_rendered_frames,
+            )
 
         return obs, objectives, False, self._done, info
 
