@@ -12,7 +12,6 @@ echo "#!/bin/bash
 #SBATCH --mem=16GB
 #SBATCH -J ${1}_${2}                                   # TODO enter your job name
 #SBATCH -t 4-00:00:00                                   # TODO check for your clusters time limit
-#SBATCH --mail-type fail
 #SBATCH -p ai                                           # TODO check for your clusters partition
 #SBATCH --output log/${1}_${2}_%A_%a.out
 #SBATCH --error log/${1}_${2}_%A_%a.err
