@@ -1,0 +1,116 @@
+{
+  "incumbent_ids": [
+    12
+  ],
+  "rejected_config_ids": [
+    2,
+    4,
+    6,
+    7,
+    8,
+    5,
+    3,
+    9,
+    10,
+    11,
+    1,
+    13,
+    14
+  ],
+  "incumbents_changed": 6,
+  "trajectory": [
+    {
+      "config_ids": [
+        1
+      ],
+      "costs": [
+        -116.4000015258789
+      ],
+      "trial": 1,
+      "walltime": 0.0
+    },
+    {
+      "config_ids": [
+        5
+      ],
+      "costs": [
+        -132.22999572753906
+      ],
+      "trial": 5,
+      "walltime": 0.0
+    },
+    {
+      "config_ids": [
+        1
+      ],
+      "costs": [
+        -110.37999725341797
+      ],
+      "trial": 10,
+      "walltime": 0.0
+    },
+    {
+      "config_ids": [
+        3
+      ],
+      "costs": [
+        -117.62999725341797
+      ],
+      "trial": 11,
+      "walltime": 0.0
+    },
+    {
+      "config_ids": [
+        1
+      ],
+      "costs": [
+        -99.76000213623047
+      ],
+      "trial": 14,
+      "walltime": 0.0
+    },
+    {
+      "config_ids": [
+        12
+      ],
+      "costs": [
+        -182.55999755859375
+      ],
+      "trial": 19,
+      "walltime": 0.0
+    }
+  ],
+  "state": {
+    "tracker": {
+      "1,1": [
+        [
+          0,
+          [
+            {
+              "buffer_batch_size": 16,
+              "gamma": 0.6409206067784,
+              "learning_rate": 1.0421008e-06,
+              "use_target_network": true,
+              "tau": 0.1414114530892
+            },
+            {
+              "buffer_batch_size": 256,
+              "gamma": 0.724084869572,
+              "learning_rate": 0.0001671610808,
+              "use_target_network": true,
+              "tau": 0.0280991669775
+            },
+            {
+              "buffer_batch_size": 256,
+              "gamma": 0.5541513590525,
+              "learning_rate": 0.0001792612213,
+              "use_target_network": true,
+              "tau": 0.1
+            }
+          ]
+        ]
+      ]
+    },
+    "next_bracket": 2
+  }
+}
