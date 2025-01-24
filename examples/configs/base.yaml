@@ -6,10 +6,12 @@ defaults:
   - cluster: local
 
 hydra:
+  output_subdir: "."
   run:
-    dir: results/${algorithm}_${environment.name}/${autorl.seed}
+    dir: results/${algorithm}_${environment.name}/
   sweep:
-    dir: results/${algorithm}_${environment.name}/${autorl.seed}
+    dir: results/${algorithm}_${environment.name}/
+    subdir: ${autorl.seed}
   job:
     chdir: true
 

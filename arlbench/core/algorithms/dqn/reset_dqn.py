@@ -177,10 +177,10 @@ class ResetDQN(Algorithm):
             seed=seed,
             space={
                 "buffer_size": Integer(
-                    "buffer_size", (1024, int(1e7)), default=1000000
+                    "buffer_size", (1024, int(1e7)), default=int(1e6)
                 ),
                 "buffer_batch_size": Categorical(
-                    "buffer_batch_size", [4, 8, 16, 32, 64], default=16
+                    "buffer_batch_size", [4, 8, 16, 32, 64, 128, 256], default=32
                 ),
                 "buffer_prio_sampling": Categorical(
                     "buffer_prio_sampling", [True, False], default=False
@@ -191,7 +191,7 @@ class ResetDQN(Algorithm):
                 "learning_rate": Float(
                     "learning_rate", (1e-6, 0.1), default=3e-4, log=True
                 ),
-                "gamma": Float("gamma", (0.8, 1.0), default=0.99),
+                "gamma": Float("gamma", (0.5, 1.0), default=0.99),
                 "tau": Float("tau", (0.01, 1.0), default=0.1),
                 "initial_epsilon": Float("initial_epsilon", (0.5, 1.0), default=1.0),
                 "target_epsilon": Float("target_epsilon", (0.001, 0.2), default=0.05),
@@ -210,7 +210,7 @@ class ResetDQN(Algorithm):
                 ),
             },
         )
-        cs.add_conditions(
+        cs.add(
             [
                 EqualsCondition(
                     cs["target_update_interval"], cs["use_target_network"], True
@@ -936,7 +936,7 @@ class ResetDQN(Algorithm):
         train_state = train_state.replace(params=params, opt_state=opt_state)
         return train_state, recycled
 
-    @functools.partial(jax.jit, static_argnums=(0, 1,), donate_argnums=(2,))
+    # @functools.partial(jax.jit, static_argnums=(0, 1,), donate_argnums=(2,))
     def fit_offline(self, steps, rng, buffer_state, train_state, normalizer_state, global_step, recycled):
         def do_update(
             rng: chex.PRNGKey,
@@ -1010,6 +1010,16 @@ class ResetDQN(Algorithm):
                 # buffer_state = self.buffer.set_priorities(
                 #     buffer_state, batch.indices, new_priorities   
                 # )
+
+                # TODO do we want to update the target network here?
+                if self.hpo_config["use_target_network"]:
+                    train_state = train_state.replace(
+                        target_params=optax.incremental_update(
+                            train_state.params,
+                            train_state.target_params,
+                            self.hpo_config["tau"],
+                        )
+                    )
 
                 return (
                     rng,
@@ -1090,16 +1100,6 @@ class ResetDQN(Algorithm):
                 buffer_state,
             )
             return rng, train_state, buffer_state, metrics
-        
-        # TODO do we want to update the target network here?
-        # if self.hpo_config["use_target_network"]:
-        #     train_state = train_state.replace(
-        #         target_params=optax.incremental_update(
-        #             train_state.params,
-        #             train_state.target_params,
-        #             self.hpo_config["tau"],
-        #         )
-        #     )
 
         rng, train_state, buffer_state, metrics = jax.lax.fori_loop(
             0, steps, loop_body, (rng, train_state, buffer_state, metrics)

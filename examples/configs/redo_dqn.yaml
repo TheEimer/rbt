@@ -5,16 +5,10 @@ defaults:
   - search_space: dqn
   - cluster: local
 
-hydra:
-  run:
-    dir: results/reset_dqn_${environment.name}/${autorl.seed}
-  sweep:
-    dir: results/reset_dqn_${environment.name}/${autorl.seed}
-  job:
-    chdir: true
-
 jax_enable_x64: false
 load_checkpoint: ""
+
+n_iterations: 10
 
 autorl:
   seed: 42
@@ -38,9 +32,19 @@ autorl:
   n_eval_episodes: 10
   weight_recycler_config: 
     weight_recycler: "primacy"
-    reset_period: 10000
+    reset_period: ${eval:'${environment.n_total_timesteps} // ${n_iterations}'}
     reset_end_step: ${environment.n_total_timesteps}
   manual_epsilon: true
   epsilon: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
-  offline_update_fraction: 0.0
+  offline_update_fraction: 0.001
   manual_offline_updates: false
+
+hydra:
+  output_subdir: "."
+  run:
+    dir: results/redo_dqn_${environment.name}
+  sweep:
+    dir: results/redo_dqn_${environment.name}
+    subdir: ${autorl.seed}
+  job:
+    chdir: true

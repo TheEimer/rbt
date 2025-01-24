@@ -1,6 +1,6 @@
 seed: 0
 hyperparameters:
-  hp_config.buffer_batch_size:
+  buffer_batch_size:
     name: buffer_batch_size
     type: categorical
     choices:
@@ -12,42 +12,28 @@ hyperparameters:
       - 128
       - 256
     default: 32
-  hp_config.initial_epsilon:
-    name: initial_epsilon
-    type: uniform_float
-    upper: 1.0
-    lower: 0.5
-    default: 1.0
-    log: false
-  hp_config.target_epsilon:
-    name: target_epsilon
-    type: uniform_float
-    upper: 0.2
-    lower: 0.001
-    default: 0.05
-    log: false
-  hp_config.learning_rate:
+  learning_rate:
     name: learning_rate
     type: uniform_float
     upper: 0.1
     lower: 1.0e-06
     default: 0.0003
     log: true
-  hp_config.use_target_network:
+  use_target_network:
     name: use_target_network
     type: categorical
     choices:
       - true
       - false
     default: true
-  hp_config.tau:
+  tau:
     name: tau
     type: uniform_float
     upper: 1.0
     lower: 0.01
     default: 0.1
     log: false
-  hp_config.gamma:
+  gamma:
     name: gamma
     type: uniform_float
     upper: 1.0
@@ -55,7 +41,7 @@ hyperparameters:
     default: 0.99
     log: false
 conditions:
-  - child: hp_config.tau
-    parent: hp_config.use_target_network
+  - child: tau
+    parent: use_target_network
     value: true
     type: EQ

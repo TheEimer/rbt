@@ -208,10 +208,10 @@ class DQN(Algorithm):
             seed=seed,
             space={
                 "buffer_size": Integer(
-                    "buffer_size", (1024, int(1e7)), default=1000000
+                    "buffer_size", (1024, int(1e7)), default=int(1e6)
                 ),
                 "buffer_batch_size": Categorical(
-                    "buffer_batch_size", [4, 8, 16, 32, 64], default=16
+                    "buffer_batch_size", [4, 8, 16, 32, 64, 128, 256], default=32
                 ),
                 "buffer_prio_sampling": Categorical(
                     "buffer_prio_sampling", [True, False], default=False
@@ -222,8 +222,8 @@ class DQN(Algorithm):
                 "learning_rate": Float(
                     "learning_rate", (1e-6, 0.1), default=3e-4, log=True
                 ),
-                "gamma": Float("gamma", (0.8, 1.0), default=0.99),
-                "tau": Float("tau", (0.01, 1.0), default=1.0),
+                "gamma": Float("gamma", (0.5, 1.0), default=0.99),
+                "tau": Float("tau", (0.01, 1.0), default=0.1),
                 "initial_epsilon": Float("initial_epsilon", (0.5, 1.0), default=1.0),
                 "target_epsilon": Float("target_epsilon", (0.001, 0.2), default=0.05),
                 "exploration_fraction": Float("exploration_fraction", (0.005, 0.5), default=0.1),
@@ -234,14 +234,14 @@ class DQN(Algorithm):
                 "gradient steps": Integer("gradient_steps", (1, 256), default=1),
                 "learning_starts": Integer("learning_starts", (0, 32768), default=1024),
                 "target_update_interval": Integer(
-                    "target_update_interval", (1, 2000), default=1000
+                    "target_update_interval", (1, 2000), default=1
                 ),
                 "normalize_observations": Categorical(
                     "normalize_observations", [True, False], default=False
                 ),
             },
         )
-        cs.add_conditions(
+        cs.add(
             [
                 EqualsCondition(
                     cs["target_update_interval"], cs["use_target_network"], True
