@@ -13,32 +13,27 @@ from typing import TYPE_CHECKING
 import hydra
 import jax
 from arlbench.autorl import AutoRLEnv
-from arlbench.core.environments import make_env
-from arlbench.core.algorithms import DQN, ResetDQN
+from arlbench.core.algorithms import ResetDQN
 from arlbench.utils.dict_helpers import to_dict
-from arlbench.utils.sbv import compute_msbe, get_train_data, get_val_data
+from arlbench.utils.sbv import get_train_data, get_val_data
+import functools
 
-from smac import MultiFidelityFacade as MFFacade, RandomFacade
+from hydra_plugins.hypersweeper.search_space_encoding import \
+    search_space_to_config_space
+from smac import MultiFidelityFacade as MFFacade, HyperparameterOptimizationFacade as HPOFacade, RandomFacade
 from smac import Scenario
 from smac.intensifier.hyperband import Hyperband
-from flax.training import checkpoints
-from flax.training import orbax_utils
-import orbax
-from pathlib import Path
 import shutil
-from hydra.utils import get_original_cwd
-import jax.numpy as jnp
 from smac.runhistory.dataclasses import TrialValue
 from omegaconf import OmegaConf
 import numpy as np
 from collections import defaultdict
-from ConfigSpace import ConfigurationSpace, Configuration
+from ConfigSpace import Configuration, ConfigurationSpace, UniformIntegerHyperparameter
 import pandas as pd
 
 OmegaConf.register_new_resolver("eval", eval)
 
 
-import absl.logging
 import logging
 
 
@@ -68,7 +63,17 @@ def run(cfg: DictConfig, logger: logging.Logger):
     msbes = defaultdict(list)
     iteration = 0
 
-    hp_config = to_dict(cfg.hp_config)
+    configspace = search_space_to_config_space(search_space=cfg.search_space)
+    if cfg.optimizer == "smac" or cfg.optimizer == "rs":
+        configspace.add(
+                UniformIntegerHyperparameter(
+                    name="gradient_steps",
+                    lower=1,
+                    upper=cfg.hb_max_budget,
+                    default_value=cfg.hb_max_budget // 2
+                )
+            )
+    hp_config = dict(ResetDQN.get_default_hpo_config())
 
     while iteration < cfg.n_iterations and not done:
         logger.info(f"Starting iteration {iteration}")
@@ -96,38 +101,93 @@ def run(cfg: DictConfig, logger: logging.Logger):
         rng = jax.random.key(cfg.autorl.seed)
 
         logger.info("Setting up SMAC...")
-
-        hyperparameters = {}
-        for name, hp in DQN.get_hpo_config_space().items():
-            if name in cfg.hyperparameters:
-                hyperparameters[name] = hp
-
-        search_space = ConfigurationSpace(hyperparameters)
-
-        # TODO: what happens if I keep asking after that? Do I need a reset?
-        scenario = Scenario(
-            search_space,
-            n_trials=cfg.n_configs_per_iteration,
-            min_budget=cfg.hb_min_budget,  # At least one offline fitting step
-            max_budget=cfg.hb_max_budget,  # At most 25 offline fitting steps
-            name=tag
-        )
-
-        # Create our intensifier
-        intensifier = Hyperband(scenario, eta=cfg.hb_eta)
-
-        def dummy(config, budget, seed):
-            return 0
+        
 
         # We add the incumbent of the last iteration to the initial design
         if prev_incumbent_config is not None:
-            additional_configs = [Configuration(search_space, values=prev_incumbent_config)]
+            additional_configs = [Configuration(configspace, values=prev_incumbent_config)]
         else:
             additional_configs = []
+
+        def dummy(config, budget, seed):
+            return 0
         
-        # Create our SMAC object and pass the scenario and the train method
-        if "optimizer" in cfg and cfg.optimizer == "random":
+        if cfg.optimizer == "smac":    
+            scenario = Scenario(
+                configspace=configspace,
+                n_trials=cfg.n_configs_per_iteration * 100,  # we stop as soon as budget is exhausted
+                name=tag,
+                use_default_config=True,
+                seed=cfg.autorl.seed
+            )
+
+            initial_design = HPOFacade.get_initial_design(
+                scenario=scenario,
+                # We set the number of initial configurations to of the budget per iteration
+                n_configs=int(0.2 * cfg.budget_per_iteration / (cfg.hb_max_budget // 2)),
+                additional_configs=additional_configs
+            )
+            smac = HPOFacade(
+                scenario=scenario,
+                target_function=dummy,
+                overwrite=True,
+                logging_level=False,
+                initial_design=initial_design,
+                config_selector=HPOFacade.get_config_selector(scenario, retrain_after=1),
+            )
+        elif cfg.optimizer == "rs":
+            scenario = Scenario(
+                configspace=configspace,
+                n_trials=cfg.n_configs_per_iteration * 100,  # we stop as soon as budget is exhausted
+                name=tag,
+                use_default_config=True,
+                seed=cfg.autorl.seed
+            )
             initial_design = RandomFacade.get_initial_design(scenario=scenario, additional_configs=additional_configs)
+
+            smac = HPOFacade(
+                scenario=scenario,
+                target_function=dummy,
+                overwrite=True,
+                logging_level=False,
+                initial_design=initial_design,
+                model=RandomFacade.get_model(scenario),
+                acquisition_function=RandomFacade.get_acquisition_function(scenario),
+                acquisition_maximizer=RandomFacade.get_acquisition_maximizer(scenario),
+            )
+        elif cfg.optimizer == "smac_mf":
+            scenario = Scenario(
+                configspace=configspace,
+                n_trials=cfg.n_configs_per_iteration,
+                name=tag,
+                min_budget=cfg.hb_min_budget,
+                max_budget=cfg.hb_max_budget,
+                seed=cfg.autorl.seed
+            )
+                        
+            initial_design = MFFacade.get_initial_design(scenario=scenario, additional_configs=additional_configs)
+            intensifier = Hyperband(scenario, eta=cfg.hb_eta)
+            
+            smac = MFFacade(
+                scenario=scenario,
+                target_function=dummy,
+                intensifier=intensifier,
+                overwrite=True,
+                logging_level=False,
+                initial_design=initial_design
+            )
+        elif cfg.optimizer == "rs_mf":
+            scenario = Scenario(
+                configspace=configspace,
+                n_trials=cfg.n_configs_per_iteration,
+                name=tag,
+                min_budget=cfg.hb_min_budget,
+                max_budget=cfg.hb_max_budget,
+                seed=cfg.autorl.seed
+            )
+            initial_design = RandomFacade.get_initial_design(scenario=scenario, additional_configs=additional_configs)
+            intensifier = Hyperband(scenario, eta=cfg.hb_eta)
+
             smac = MFFacade(
                 scenario=scenario,
                 target_function=dummy,
@@ -138,17 +198,12 @@ def run(cfg: DictConfig, logger: logging.Logger):
                 initial_design=initial_design,
                 overwrite=True,
                 logging_level=False,
+                config_selector=RandomFacade.get_config_selector(scenario, retrain_after=1),
             )
         else:
-            initial_design = MFFacade.get_initial_design(scenario=scenario, additional_configs=additional_configs)
-            smac = MFFacade(
-                scenario=scenario,
-                target_function=dummy,
-                intensifier=intensifier,
-                overwrite=True,
-                logging_level=False,
-                initial_design=initial_design
-            )
+            raise ValueError(f"Unknown optimizer {cfg.optimizer}")
+
+            
         logger.info("Done.")
 
         incumbent_path = None
@@ -165,13 +220,21 @@ def run(cfg: DictConfig, logger: logging.Logger):
             model = None
 
         n_configs = 0
-        while n_configs < cfg.n_configs_per_iteration:
+        total_budget = 0
+        terminate = False
+        while not terminate:
             logger.info(f"Starting config {n_configs} for iteration {iteration}")
             env._load(save_path, seed=cfg.autorl.seed, buffer_state=buffer_state)
             config = smac.ask()
             
-            budget = config.budget
-            hp_config = to_dict(config.config)
+            if cfg.optimizer == "smac" or cfg.optimizer == "rs":
+                budget = config.config["gradient_steps"]
+                hp_config = to_dict(config.config)
+                hp_config.pop("gradient_steps")                
+            else:
+                budget = config.budget
+                assert budget is not None
+                hp_config = to_dict(config.config)
 
             new_hp_config = dict(ResetDQN.get_default_hpo_config())
             for k, v in hp_config.items():
@@ -183,6 +246,10 @@ def run(cfg: DictConfig, logger: logging.Logger):
             train_state, _ = env._algorithm.recycle_neurons(env._algorithm_state.runner_state.train_state, env._algorithm_state.buffer_state, env._algorithm_state.runner_state.global_step, rng, True)
             logger.info("Done.")
             
+            # logger.info("Compiling fit_offline...")
+            # env._algorithm.compile_fit_offline()
+            # logger.info("Done.")
+
             logger.info("Fitting offline...")
             rng, train_state, _, metrics = env._algorithm.fit_offline(
                 int(budget),
@@ -196,6 +263,7 @@ def run(cfg: DictConfig, logger: logging.Logger):
             runner_state = env._algorithm_state.runner_state._replace(train_state=train_state)
             env.algorithm_state = env._algorithm_state._replace(runner_state=runner_state)
             n_configs += 1
+            total_budget += budget
             logger.info("Done.")
             
             logger.info("Evaluating config...")
@@ -230,10 +298,21 @@ def run(cfg: DictConfig, logger: logging.Logger):
                 shutil.rmtree(incumbent_path, ignore_errors=True)
                 incumbent_path = env._save(tag=f"rbt_incumbent_iteration_{iteration}")
 
+            if cfg.optimizer == "smac" or cfg.optimizer == "rs":
+                terminate = total_budget >= cfg.budget_per_iteration
+            else:
+                terminate = n_configs >= cfg.n_configs_per_iteration
+            
         if incumbent_path is not None:
             env._load(incumbent_path, seed=cfg.autorl.seed)
         hp_config = incumbent_config
         prev_incumbent_config = config.config
+
+        logging.info("#" * 80)
+        logging.info(f"Best performance for iteration {iteration}: {incumbent_performance}")
+        logging.info(f"Best eval performance for iteration {iteration}: {incumbent_eval_performance}")
+        logging.info("#" * 80)
+
         incumbent_performances.append(incumbent_performance)
         incumbent_eval_performances.append(incumbent_eval_performance)
         iteration += 1
@@ -269,6 +348,9 @@ def run(cfg: DictConfig, logger: logging.Logger):
 
     train_info_dfs = pd.concat(train_info_dfs)
     train_info_dfs.to_csv("train_info.csv", index=False)
+
+    # if cfg.remove_checkpoints:
+    shutil.rmtree("./checkpoints", ignore_errors=True)
 
 @hydra.main(version_base=None, config_path="examples/configs", config_name="rbt")
 def execute(cfg: DictConfig):
