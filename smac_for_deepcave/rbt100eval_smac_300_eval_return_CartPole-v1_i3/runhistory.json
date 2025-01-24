@@ -1,0 +1,435 @@
+{
+  "stats": {
+    "submitted": 28,
+    "finished": 28,
+    "running": 0
+  },
+  "data": [
+    [
+      1,
+      null,
+      209652396,
+      null,
+      -74.66000366210938,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      1,
+      null,
+      398764591,
+      null,
+      -91.0,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      2,
+      null,
+      209652396,
+      null,
+      -91.9000015258789,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      2,
+      null,
+      398764591,
+      null,
+      -92.31999969482422,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      2,
+      null,
+      924231285,
+      null,
+      -280.55999755859375,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      3,
+      null,
+      209652396,
+      null,
+      -91.2699966430664,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      3,
+      null,
+      398764591,
+      null,
+      -132.44000244140625,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      3,
+      null,
+      924231285,
+      null,
+      -89.54000091552734,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      4,
+      null,
+      209652396,
+      null,
+      -89.30999755859375,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      4,
+      null,
+      398764591,
+      null,
+      -89.11000061035156,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      4,
+      null,
+      924231285,
+      null,
+      -85.48999786376953,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      5,
+      null,
+      209652396,
+      null,
+      -89.55000305175781,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      5,
+      null,
+      398764591,
+      null,
+      -90.02999877929688,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      5,
+      null,
+      924231285,
+      null,
+      -92.0999984741211,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      6,
+      null,
+      209652396,
+      null,
+      -85.36000061035156,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      6,
+      null,
+      398764591,
+      null,
+      -89.37000274658203,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      6,
+      null,
+      924231285,
+      null,
+      -87.68000030517578,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      7,
+      null,
+      209652396,
+      null,
+      -85.5,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      7,
+      null,
+      398764591,
+      null,
+      -86.27999877929688,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      7,
+      null,
+      924231285,
+      null,
+      -87.44000244140625,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      8,
+      null,
+      209652396,
+      null,
+      -42.0,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      8,
+      null,
+      398764591,
+      null,
+      -88.0999984741211,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      8,
+      null,
+      924231285,
+      null,
+      -86.76000213623047,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      9,
+      null,
+      209652396,
+      null,
+      -86.36000061035156,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      9,
+      null,
+      398764591,
+      null,
+      -89.02999877929688,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      9,
+      null,
+      924231285,
+      null,
+      -87.37999725341797,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      10,
+      null,
+      209652396,
+      null,
+      -87.30999755859375,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ],
+    [
+      10,
+      null,
+      398764591,
+      null,
+      -87.80999755859375,
+      0.5,
+      1,
+      0.0,
+      0.0,
+      {}
+    ]
+  ],
+  "configs": {
+    "1": {
+      "buffer_batch_size": 8,
+      "gamma": 0.8102823477238,
+      "gradient_steps": 33,
+      "learning_rate": 1.14519959e-05,
+      "use_target_network": false
+    },
+    "2": {
+      "buffer_batch_size": 64,
+      "gamma": 0.5536609878764,
+      "gradient_steps": 297,
+      "learning_rate": 0.0126384534417,
+      "use_target_network": true,
+      "tau": 0.8836752658337
+    },
+    "3": {
+      "buffer_batch_size": 128,
+      "gamma": 0.9456212231889,
+      "gradient_steps": 124,
+      "learning_rate": 5.02666092e-05,
+      "use_target_network": true,
+      "tau": 0.5730428045895
+    },
+    "4": {
+      "buffer_batch_size": 8,
+      "gamma": 0.6905238330364,
+      "gradient_steps": 169,
+      "learning_rate": 0.003158448629,
+      "use_target_network": false
+    },
+    "5": {
+      "buffer_batch_size": 4,
+      "gamma": 0.911057358142,
+      "gradient_steps": 227,
+      "learning_rate": 0.000375068953,
+      "use_target_network": false
+    },
+    "6": {
+      "buffer_batch_size": 256,
+      "gamma": 0.6715258401819,
+      "gradient_steps": 48,
+      "learning_rate": 0.000107388617,
+      "use_target_network": true,
+      "tau": 0.7833173160814
+    },
+    "7": {
+      "buffer_batch_size": 32,
+      "gamma": 0.8414010090114,
+      "gradient_steps": 172,
+      "learning_rate": 0.0001463871938,
+      "use_target_network": false
+    },
+    "8": {
+      "buffer_batch_size": 32,
+      "gamma": 0.99,
+      "gradient_steps": 150,
+      "learning_rate": 0.0003,
+      "use_target_network": true,
+      "tau": 0.1
+    },
+    "9": {
+      "buffer_batch_size": 64,
+      "gamma": 0.5237425111865,
+      "gradient_steps": 282,
+      "learning_rate": 0.0034911424126,
+      "use_target_network": true,
+      "tau": 0.1807100221507
+    },
+    "10": {
+      "buffer_batch_size": 64,
+      "gamma": 0.5579675873563,
+      "gradient_steps": 300,
+      "learning_rate": 0.0903664623952,
+      "use_target_network": true,
+      "tau": 0.9121934906957
+    }
+  },
+  "config_origins": {
+    "1": "Initial Design: Sobol",
+    "2": "Initial Design: Sobol",
+    "3": "Initial Design: Sobol",
+    "4": "Initial Design: Sobol",
+    "5": "Initial Design: Sobol",
+    "6": "Initial Design: Sobol",
+    "7": "Initial design",
+    "8": "Initial Design: Default configuration",
+    "9": "Acquisition Function Maximizer: Local Search",
+    "10": "Acquisition Function Maximizer: Local Search"
+  }
+}
