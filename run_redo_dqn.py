@@ -59,7 +59,6 @@ def run(cfg: DictConfig, logger: logging.Logger):
     iteration = 0
 
     hp_config = dict(ResetDQN.get_default_hpo_config())
-    offline_steps = int(env._algorithm.weight_recycler.reset_period * env._algorithm.offline_update_fraction * hp_config["gradient_steps"])
 
     while iteration < cfg.n_iterations and not done:
         logger.info(f"Starting iteration {iteration}")
@@ -79,6 +78,7 @@ def run(cfg: DictConfig, logger: logging.Logger):
         logger.info("Done.")
 
         logger.info("Fitting offline...")
+        offline_steps = int(env._algorithm.weight_recycler.reset_period * env._algorithm.offline_update_fraction * hp_config["gradient_steps"])
         rng, train_state, _, metrics = env._algorithm.fit_offline(
             offline_steps,
             rng,
