@@ -55,5 +55,5 @@ autorl:
   optimize_objectives: "upper"
   n_steps: ${pbt_iterations}
   n_eval_steps: 100
-  n_eval_episodes: 10
+  n_eval_episodes: 128
   
