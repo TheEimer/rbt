@@ -2,29 +2,13 @@ defaults:
   - _self_
   - /algorithm: redo_dqn
   - /environment: cc_cartpole
-  - search_space: dqn_rbt
+  - search_space: dqn
   - cluster: local
 
 jax_enable_x64: false
 load_checkpoint: ""
-remove_checkpoints: true
 
 n_iterations: 10
-eval_criterion: eval_return
-n_eval_episodes: 128
-hb_min_budget: ${eval:'${hb_max_budget} // 10'}
-hb_max_budget: 100
-budget_per_iteration:  ${eval:'16 * ${hb_max_budget}'}
-hb_eta: 2
-n_configs_per_iteration: 22
-optimizer: rs
-
-hyperparameters:
-  - buffer_batch_size
-  - learning_rate
-  - use_target_network
-  - tau
-  - gamma
 
 autorl:
   seed: 42
@@ -36,34 +20,31 @@ autorl:
   algorithm: ${algorithm}
   cnn_policy: ${environment.cnn_policy}
   nas_config: ${nas_config}
-  n_total_timesteps: ${eval:'${environment.n_total_timesteps} // ${n_iterations}'}
-  checkpoint: ["opt_state", "params", "target_params"]
+  n_total_timesteps: ${environment.n_total_timesteps}
+  checkpoint: []
   checkpoint_name: "default_checkpoint"
-  checkpoint_dir: "./checkpoints"
+  checkpoint_dir: "/tmp"
   state_features: []
   objectives: ["reward_mean"]
   optimize_objectives: "upper"
-  n_steps: ${n_iterations}
-  n_eval_steps: 10
-  n_eval_episodes: 128
+  n_steps: 1
+  n_eval_steps: 100
+  n_eval_episodes: 10
   weight_recycler_config: 
     weight_recycler: "primacy"
     reset_period: ${eval:'${environment.n_total_timesteps} // ${n_iterations}'}
     reset_end_step: ${environment.n_total_timesteps}
   manual_epsilon: true
   epsilon: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
-  offline_update_fraction: 0.000
-  manual_offline_updates: true
-  manual_recycling: true
-  validation_size: 0.2
-  visualize_buffer: false
-  
+  offline_update_fraction: 0.001
+  manual_offline_updates: false
+
 hydra:
   output_subdir: "."
   run:
-    dir: results/rbt_${optimizer}_${hb_max_budget}_${eval_criterion}_${environment.name}
+    dir: results/redo_dqn_${environment.name}
   sweep:
-    dir: results/rbt_${optimizer}_${hb_max_budget}_${eval_criterion}_${environment.name}
+    dir: results/redo_dqn_${environment.name}
     subdir: ${autorl.seed}
   job:
     chdir: true

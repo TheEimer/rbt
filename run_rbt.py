@@ -349,8 +349,8 @@ def run(cfg: DictConfig, logger: logging.Logger):
     train_info_dfs = pd.concat(train_info_dfs)
     train_info_dfs.to_csv("train_info.csv", index=False)
 
-    # if cfg.remove_checkpoints:
-    shutil.rmtree("./checkpoints", ignore_errors=True)
+    if cfg.remove_checkpoints is True:
+        shutil.rmtree("./checkpoints", ignore_errors=True)
 
 @hydra.main(version_base=None, config_path="examples/configs", config_name="rbt")
 def execute(cfg: DictConfig):

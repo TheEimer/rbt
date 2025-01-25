@@ -29,7 +29,7 @@ autorl:
   optimize_objectives: "upper"
   n_steps: 1
   n_eval_steps: 100
-  n_eval_episodes: 10
+  n_eval_episodes: 128
   weight_recycler_config: 
     weight_recycler: "primacy"
     reset_period: ${eval:'${environment.n_total_timesteps} // ${n_iterations}'}
