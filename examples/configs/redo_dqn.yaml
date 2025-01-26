@@ -20,7 +20,7 @@ autorl:
   algorithm: ${algorithm}
   cnn_policy: ${environment.cnn_policy}
   nas_config: ${nas_config}
-  n_total_timesteps: ${environment.n_total_timesteps}
+  n_total_timesteps: ${eval:'${environment.n_total_timesteps} // ${n_iterations}'}
   checkpoint: []
   checkpoint_name: "default_checkpoint"
   checkpoint_dir: "/tmp"
