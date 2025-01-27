@@ -105,6 +105,7 @@ def run(cfg: DictConfig, logger: logging.Logger):
     train_info_dfs.loc[:, "iteration"] = train_info_dfs["steps"].cumsum()
 
     train_info_dfs.to_csv("train_info.csv", index=False)
+    train_info_dfs.to_csv("evaluation.csv", index=False)
     
 
 @hydra.main(version_base=None, config_path="examples/configs", config_name="redo_dqn")

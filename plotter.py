@@ -20,7 +20,7 @@ APPROACHES = {
     "rbt": "RBT",
 }
 
-RBT_BUDGETS = [100, 200]
+RBT_BUDGETS = [10, 50, 100, 200, 300, 500]
 RBT_METRICS = {
     "eval_return": "Evaluation Return",
     # "td_error": "TD Error",
@@ -37,7 +37,10 @@ class Plotter:
     def load_baseline_results(self, approach: str, env: str):
         evals = []
         for seed in SEEDS:
-            eval_path = self.results_dir / f"{approach}_{env}" / str(seed) / "evaluation.csv"
+            if approach == "redo_dqn":
+                eval_path = self.results_dir / f"{approach}_{env}" / str(seed) / "train_info.csv"
+            else:
+                eval_path = self.results_dir / f"{approach}_{env}" / str(seed) / "evaluation.csv"
             if not eval_path.exists():
                 print(f"Skipping {eval_path}")
                 continue
@@ -182,16 +185,14 @@ class Plotter:
         # Add a single legend to the figure
         handles, labels = lineplot.get_legend_handles_labels()
         fig.legend(handles, labels, title="Approach", loc='center left', bbox_to_anchor=(0, 0.5))
-
+        plt.title(env)
         plt.tight_layout(rect=[0.15, 0, 1, 1])  # Adjust layout to make space for the legend
         plt.savefig(f"plots/{env}_{rbt_optimizer}.png", dpi=400)
 
     def plot_combined(self, env: str):
-        fig, axs = plt.subplots(3, len(RBT_BUDGETS), figsize=(3 * len(RBT_BUDGETS), 8), sharex=True, sharey=True)
+        fig, axs = plt.subplots(len(OPTIMIZERS), len(RBT_BUDGETS), figsize=(3 * len(RBT_BUDGETS), 3 * len(OPTIMIZERS)), sharex=True, sharey=True)
 
         for i, rbt_optimizer in enumerate(OPTIMIZERS.keys()):
-            if len(axs[i]) == 1:
-                axs[i] = np.array([axs[i]])
             for ax, budget in zip(axs[i].flatten(), RBT_BUDGETS):
                 data, _ = self.load_data(env=env, rbt_budgets=[budget], rbt_optimizer=rbt_optimizer)
                 if len(data) == 0:
@@ -248,8 +249,8 @@ if __name__ == '__main__':
     sns.set_palette("colorblind")
     plotter = Plotter()
     # plotter.plot_rbt("CartPole-v1")
-    plotter.plot_combined("CartPole-v1")
-    # plotter.plot_combined("SpaceInvaders-MinAtar")
+    # plotter.plot_combined("CartPole-v1")
+    plotter.plot_combined("SpaceInvaders-MinAtar")
     # plotter.plot("CartPole-v1", rbt_optimizer="smac")
     # plotter.plot("CartPole-v1", rbt_optimizer="random")
     # plotter.plot("SpaceInvaders-MinAtar", rbt_optimizer="smac")
