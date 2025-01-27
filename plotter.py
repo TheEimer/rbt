@@ -37,10 +37,7 @@ class Plotter:
     def load_baseline_results(self, approach: str, env: str):
         evals = []
         for seed in SEEDS:
-            if approach == "redo_dqn":
-                eval_path = self.results_dir / f"{approach}_{env}" / str(seed) / "train_info.csv"
-            else:
-                eval_path = self.results_dir / f"{approach}_{env}" / str(seed) / "evaluation.csv"
+            eval_path = self.results_dir / f"{approach}_{env}" / str(seed) / "evaluation.csv"
             if not eval_path.exists():
                 print(f"Skipping {eval_path}")
                 continue
@@ -248,6 +245,7 @@ if __name__ == '__main__':
     sns.set_palette("colorblind")
 
     plotter = Plotter()
-    plotter.plot_combined("CartPole-v1")
-    plotter.plot_combined("SpaceInvaders-MinAtar")
+    # plotter.plot_combined("CartPole-v1")
+    # plotter.plot_combined("SpaceInvaders-MinAtar")
+    plotter.plot_combined("LunarLander-v2")
 
