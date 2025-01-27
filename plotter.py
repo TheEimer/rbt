@@ -185,7 +185,6 @@ class Plotter:
         # Add a single legend to the figure
         handles, labels = lineplot.get_legend_handles_labels()
         fig.legend(handles, labels, title="Approach", loc='center left', bbox_to_anchor=(0, 0.5))
-        plt.title(env)
         plt.tight_layout(rect=[0.15, 0, 1, 1])  # Adjust layout to make space for the legend
         plt.savefig(f"plots/{env}_{rbt_optimizer}.png", dpi=400)
 
@@ -212,6 +211,7 @@ class Plotter:
         # Add a single legend to the figure
         handles, labels = lineplot.get_legend_handles_labels()
         fig.legend(handles, labels, title="Approach", loc='center left', bbox_to_anchor=(0, 0.5))
+        fig.suptitle(env)
 
         plt.tight_layout(rect=[0.18, 0, 1, 1])  # Adjust layout to make space for the legend
         plt.savefig(f"plots/{env}.png", dpi=400)
@@ -240,21 +240,14 @@ class Plotter:
         # Add a single legend to the figure
         handles, labels = lineplot.get_legend_handles_labels()
         fig.legend(handles, labels, title="Approach", loc='center left', bbox_to_anchor=(0, 0.5))
-
         plt.tight_layout(rect=[0.18, 0, 1, 1])  # Adjust layout to make space for the legend
         plt.savefig(f"plots/{env}_rbt.png", dpi=400)
 
 if __name__ == '__main__':
     sns.set_style("whitegrid")
     sns.set_palette("colorblind")
+
     plotter = Plotter()
-    # plotter.plot_rbt("CartPole-v1")
-    # plotter.plot_combined("CartPole-v1")
+    plotter.plot_combined("CartPole-v1")
     plotter.plot_combined("SpaceInvaders-MinAtar")
-    # plotter.plot("CartPole-v1", rbt_optimizer="smac")
-    # plotter.plot("CartPole-v1", rbt_optimizer="random")
-    # plotter.plot("SpaceInvaders-MinAtar", rbt_optimizer="smac")
-    # plotter.plot("SpaceInvaders-MinAtar", rbt_optimizer="random")
 
-
-# python run_rbt.py -m "cluster=luis_cpu" "hb_max_budget=250,500" "eval_criterion=msbe,td_error,eval_return" "optimizer=random" "environment=cc_cartpole,minatar_spaceinvaders"
