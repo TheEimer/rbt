@@ -102,7 +102,7 @@ def run(cfg: DictConfig, logger: logging.Logger):
 
     # We need to set the real number of steps
     train_info_dfs.loc[:, "steps"] = train_info_dfs["steps"].min()
-    train_info_dfs.loc[:, "iteration"] = train_info_dfs["steps"].cumsum()
+    train_info_dfs.loc[:, "steps"] = train_info_dfs["steps"].cumsum()
 
     train_info_dfs.to_csv("train_info.csv", index=False)
     train_info_dfs.to_csv("evaluation.csv", index=False)
