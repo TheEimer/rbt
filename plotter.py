@@ -18,9 +18,10 @@ APPROACHES = {
     "reset_dqn": "Reset DQN",
     "pbt": "PBT",
     "rbt": "RBT",
+    "rbt-buf": "RBT Buffer",
 }
 
-RBT_BUDGETS = [10, 50, 100, 200, 300, 500]
+# RBT_OFFLINE_UPDATE_FRACTIONS = [0.001, 0.002]
 RBT_METRICS = {
     "eval_return": "Evaluation Return",
     # "td_error": "TD Error",
@@ -52,11 +53,11 @@ class Plotter:
         else:
             return pd.concat(evals)
     
-    def load_rbt_results(self, approach: str, optimizer: str, env: str, metric: str, budget: int):
+    def load_rbt_results(self, approach: str, optimizer: str, env: str, metric: str):
         all_inc_eval = []
         all_metrics = []
 
-        base_dir = f"{approach}_{optimizer}_{budget}_{metric}_{env}"
+        base_dir = f"{approach}_{optimizer}_{metric}_{env}"
         
         for seed in SEEDS:
             train_info_path = self.results_dir / base_dir / str(seed) / "train_info.csv"
@@ -88,7 +89,7 @@ class Plotter:
                 metrics = pd.merge(metrics, msbe, on=['iteration', 'config_id'])
 
             metrics['seed'] = seed
-            metrics['approach'] =  f"{APPROACHES[approach]} {budget} {RBT_METRICS[metric]}"
+            metrics['approach'] =  f"{APPROACHES[approach]} {RBT_METRICS[metric]}"
             metrics['env'] = env
             all_metrics.append(metrics)
 
@@ -129,7 +130,7 @@ class Plotter:
             env: str,
             rbt_optimizer: str,
             approaches: list[str] | None = None,
-            rbt_budgets: list[int] | None = None,
+            # rbt_fractions: list[float] | None = None,
             rbt_metrics: list[str] | None = None
         ):
         all_data = []
@@ -138,8 +139,8 @@ class Plotter:
         if approaches is None:
             approaches = list(APPROACHES.keys())
 
-        if rbt_budgets is None:
-            rbt_budgets = RBT_BUDGETS
+        # if rbt_fractions is None:
+        #     rbt_fractions = RBT_OFFLINE_UPDATE_FRACTIONS
 
         if rbt_metrics is None:
             rbt_metrics = list(RBT_METRICS.keys())
@@ -149,11 +150,11 @@ class Plotter:
                 data = self.load_baseline_results(approach, env)
                 all_data.append(data)
             elif "rbt" in approach:
-                for budget in rbt_budgets:
-                    for metric in rbt_metrics:
-                        train_info, metrics = self.load_rbt_results(approach, rbt_optimizer, env, metric, budget)
-                        all_data.append(train_info)
-                        all_rbt_metrics.append(metrics)
+                # for offline_update_fraction in rbt_fractions:
+                for metric in rbt_metrics:
+                    train_info, metrics = self.load_rbt_results(approach, rbt_optimizer, env, metric)
+                    all_data.append(train_info)
+                    all_rbt_metrics.append(metrics)
             elif approach == "pbt":
                 data = self.load_pbt_results(approach, env)
                 all_data.append(data)
@@ -164,46 +165,26 @@ class Plotter:
         all_rbt_metrics = pd.concat(all_rbt_metrics)
                 
         return all_data, all_rbt_metrics
-    
-    def plot(self, env: str, rbt_optimizer: str = "smac"):
-        fig, axs = plt.subplots(1, len(RBT_BUDGETS), figsize=(5 * len(RBT_BUDGETS), 5), sharex=True, sharey=True)
 
-        for ax, budget in zip(axs.flatten(), RBT_BUDGETS):
-            data, _ = self.load_data(env=env, rbt_budget=budget, rbt_optimizer=rbt_optimizer)
+
+    def plot_combined(self, env: str):
+        fig, axs = plt.subplots(1, len(OPTIMIZERS), figsize=(3 * len(OPTIMIZERS), 3), sharex=True, sharey=True)
+
+        for ax, rbt_optimizer in zip(axs, OPTIMIZERS.keys()):
+            data, _ = self.load_data(env=env, rbt_optimizer=rbt_optimizer)
+            if len(data) == 0:
+                continue
+
             lineplot = sns.lineplot(data=data, x="steps", y="returns", hue="approach", ax=ax)
-            opt_name = "SMAC" if rbt_optimizer == "smac" else "Random Search"
-            ax.set_title(f"{opt_name}, max budget = {budget}")
+            opt_name = OPTIMIZERS[rbt_optimizer]
+            ax.set_title(f"{opt_name}")
             ax.set_xlabel("Steps")
             ax.set_ylabel("Evaluation Return")
 
+            ax.ticklabel_format(axis='x', style='sci', scilimits=(0,0))
+
             # disable legend of axis
             ax.get_legend().remove()
-
-        # Add a single legend to the figure
-        handles, labels = lineplot.get_legend_handles_labels()
-        fig.legend(handles, labels, title="Approach", loc='center left', bbox_to_anchor=(0, 0.5))
-        plt.tight_layout(rect=[0.15, 0, 1, 1])  # Adjust layout to make space for the legend
-        plt.savefig(f"plots/{env}_{rbt_optimizer}.png", dpi=400)
-
-    def plot_combined(self, env: str):
-        fig, axs = plt.subplots(len(OPTIMIZERS), len(RBT_BUDGETS), figsize=(3 * len(RBT_BUDGETS), 3 * len(OPTIMIZERS)), sharex=True, sharey=True)
-
-        for i, rbt_optimizer in enumerate(OPTIMIZERS.keys()):
-            for ax, budget in zip(axs[i].flatten(), RBT_BUDGETS):
-                data, _ = self.load_data(env=env, rbt_budgets=[budget], rbt_optimizer=rbt_optimizer)
-                if len(data) == 0:
-                    continue
-
-                lineplot = sns.lineplot(data=data, x="steps", y="returns", hue="approach", ax=ax)
-                opt_name = OPTIMIZERS[rbt_optimizer]
-                ax.set_title(f"{opt_name}\nmax budget = {budget}")
-                ax.set_xlabel("Steps")
-                ax.set_ylabel("Evaluation Return")
-
-                ax.ticklabel_format(axis='x', style='sci', scilimits=(0,0))
-
-                # disable legend of axis
-                ax.get_legend().remove()
 
         # Add a single legend to the figure
         handles, labels = lineplot.get_legend_handles_labels()
@@ -214,15 +195,15 @@ class Plotter:
         plt.savefig(f"plots/{env}.png", dpi=400)
 
     def plot_rbt(self, env: str):
-        fig, axs = plt.subplots(3, len(RBT_BUDGETS), figsize=(4 * len(RBT_BUDGETS), 6), sharex=True, sharey=True)
+        fig, axs = plt.subplots(3, len(RBT_OFFLINE_UPDATE_FRACTIONS), figsize=(4 * len(RBT_OFFLINE_UPDATE_FRACTIONS), 6), sharex=True, sharey=True)
 
         for i, rbt_optimizer in enumerate(["random", "smac", "smac_mf"]):
-            for ax, budget in zip(axs[i].flatten(), RBT_BUDGETS):
+            for ax, budget in zip(axs[i].flatten(), RBT_OFFLINE_UPDATE_FRACTIONS):
                 data, _ = self.load_data(
                     env=env,
                     rbt_optimizer=rbt_optimizer,
                     approaches=["rbt"],
-                    rbt_budgets=[budget],
+                    rbt_fractions=[budget],
                     rbt_metrics=["eval_return"]
                 )
                 lineplot = sns.lineplot(data=data, x="steps", y="returns", hue="approach", ax=ax)
@@ -245,7 +226,7 @@ if __name__ == '__main__':
     sns.set_palette("colorblind")
 
     plotter = Plotter()
-    # plotter.plot_combined("CartPole-v1")
+    plotter.plot_combined("CartPole-v1")
     # plotter.plot_combined("SpaceInvaders-MinAtar")
-    plotter.plot_combined("LunarLander-v2")
+    # plotter.plot_combined("LunarLander-v2")
 

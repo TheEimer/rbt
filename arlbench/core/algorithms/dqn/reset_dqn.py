@@ -86,7 +86,7 @@ class ResetDQN(Algorithm):
         weight_recycler_config: Configuration | None = None,
         manual_epsilon: bool = False,
         epsilon: float = 0.05,
-        offline_update_fraction: float = 0.1,
+        replay_ratio: float = 0.1,
         manual_offline_updates: bool = False,
         manual_recycling: bool = False,
         validation_size: float = 0.1
@@ -121,7 +121,7 @@ class ResetDQN(Algorithm):
         self.eval_eps = eval_eps
         self.manual_epsilon = manual_epsilon
         self.epsilon = jnp.array(epsilon)
-        self.offline_update_fraction = offline_update_fraction
+        self.replay_ratio = replay_ratio
         self.manual_offline_updates = manual_offline_updates
         self.manual_recycling = manual_recycling
         self.validation_size = validation_size
@@ -177,7 +177,7 @@ class ResetDQN(Algorithm):
             seed=seed,
             space={
                 "buffer_size": Integer(
-                    "buffer_size", (1024, int(1e7)), default=int(1e6)
+                    "buffer_size", (int(5e3), int(1e7)), default=int(1e6)
                 ),
                 "buffer_batch_size": Categorical(
                     "buffer_batch_size", [4, 8, 16, 32, 64, 128, 256], default=32
@@ -192,7 +192,7 @@ class ResetDQN(Algorithm):
                     "learning_rate", (1e-6, 0.1), default=3e-4, log=True
                 ),
                 "gamma": Float("gamma", (0.5, 1.0), default=0.99),
-                "tau": Float("tau", (0.01, 1.0), default=0.1),
+                "tau": Float("tau", (0.001, 1.0), default=1.0),
                 "initial_epsilon": Float("initial_epsilon", (0.5, 1.0), default=1.0),
                 "target_epsilon": Float("target_epsilon", (0.001, 0.2), default=0.05),
                 "exploration_fraction": Float("exploration_fraction", (0.005, 0.5), default=0.1),
@@ -904,7 +904,7 @@ class ResetDQN(Algorithm):
             train_state, recycled = self.recycle_neurons(train_state, buffer_state, global_step, rng)
 
         if not self.manual_offline_updates:
-            offline_steps = int(self.weight_recycler.reset_period * self.offline_update_fraction * self.hpo_config["gradient_steps"])
+            offline_steps = int(self.weight_recycler.reset_period * self.replay_ratio)
             if offline_steps > 0:
                 rng, train_state, buffer_state, metrics = self.fit_offline(offline_steps, rng, buffer_state, train_state, normalizer_state, global_step, recycled)
 
@@ -928,6 +928,8 @@ class ResetDQN(Algorithm):
         return (runner_state, buffer_state), (metrics, trajectories)
     
     def recycle_neurons(self, train_state, buffer_state, global_step, rng, force=None):
+        self.weight_recycler = self.recycler_cls(list(train_state.params.keys()), **self.weight_recycler_config)
+
         intermediates = self.get_intermediates(rng, train_state.params, buffer_state)
         rng, key = jax.random.split(rng)
         params, opt_state, recycled = self.weight_recycler.maybe_update_weights(
@@ -936,7 +938,7 @@ class ResetDQN(Algorithm):
         train_state = train_state.replace(params=params, opt_state=opt_state)
         return train_state, recycled
 
-    # @functools.partial(jax.jit, static_argnums=(0, 1,), donate_argnums=(2,))
+    @functools.partial(jax.jit, static_argnums=(0, 1,))
     def fit_offline(self, steps, rng, buffer_state, train_state, normalizer_state, global_step, recycled):
         def do_update(
             rng: chex.PRNGKey,
@@ -1012,14 +1014,14 @@ class ResetDQN(Algorithm):
                 # )
 
                 # TODO do we want to update the target network here?
-                if self.hpo_config["use_target_network"]:
-                    train_state = train_state.replace(
-                        target_params=optax.incremental_update(
-                            train_state.params,
-                            train_state.target_params,
-                            self.hpo_config["tau"],
-                        )
-                    )
+                # if self.hpo_config["use_target_network"]:
+                #     train_state = train_state.replace(
+                #         target_params=optax.incremental_update(
+                #             train_state.params,
+                #             train_state.target_params,
+                #             self.hpo_config["tau"],
+                #         )
+                #     )
 
                 return (
                     rng,
@@ -1105,6 +1107,9 @@ class ResetDQN(Algorithm):
             0, steps, loop_body, (rng, train_state, buffer_state, metrics)
         )
 
+        if self.hpo_config["use_target_network"]:
+            train_state = train_state.replace(target_params=train_state.params)
+
         return rng, train_state, buffer_state, metrics
 
     def _sample_batch_for_statistics(self, rng, buffer_state):
@@ -1127,3 +1132,5 @@ class ResetDQN(Algorithm):
 
         _, state = jax.vmap(apply_data)(batch)
         return state["intermediates"]
+    
+

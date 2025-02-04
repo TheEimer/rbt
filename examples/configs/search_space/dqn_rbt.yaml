@@ -19,20 +19,20 @@ hyperparameters:
     lower: 1.0e-06
     default: 0.0003
     log: true
-  use_target_network:
-    name: use_target_network
-    type: categorical
-    choices:
-      - true
-      - false
-    default: true
-  tau:
-    name: tau
-    type: uniform_float
-    upper: 1.0
-    lower: 0.01
-    default: 0.1
-    log: false
+  # use_target_network:
+  #   name: use_target_network
+  #   type: categorical
+  #   choices:
+  #     - true
+  #     - false
+  #   default: true
+  # tau:
+  #   name: tau
+  #   type: uniform_float
+  #   upper: 1.0
+  #   lower: 0.001
+  #   default: 0.01
+  #   log: false
   gamma:
     name: gamma
     type: uniform_float
@@ -40,8 +40,8 @@ hyperparameters:
     lower: 0.5
     default: 0.99
     log: false
-conditions:
-  - child: tau
-    parent: use_target_network
-    value: true
-    type: EQ
+# conditions:
+#   - child: tau
+#     parent: use_target_network
+#     value: true
+#     type: EQ

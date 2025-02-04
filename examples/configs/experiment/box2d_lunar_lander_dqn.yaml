@@ -1,0 +1,25 @@
+# @package _global_
+defaults:
+  - override /environment: box2d_lunar_lander  
+
+experiment_name: box2d_lunar_lander_dqn
+
+environment:
+  n_envs: 8
+  n_total_timesteps: 200000
+
+# from https://huggingface.co/sb3/dqn-LunarLander-v2
+# hp_config:
+#   buffer_batch_size: 128
+#   buffer_size: 50000
+#   target_epsilon: 0.1
+#   exploration_fraction: 0.12
+#   gamma: 0.99
+#   learning_rate: 0.00063
+#   target_update_interval: 250
+#   train_freq: 4
+#   gradient_steps: 4
+#   normalize_observations: False
+
+# nas_config:
+#   hidden_size: 256

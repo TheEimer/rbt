@@ -12,6 +12,8 @@ remove_checkpoints: true
 
 replay_ratio: 0.1
 
+load_buffer_state: /scratch/hpc-prf-intexml/jbecktepe/git_repos/rbt_dev/results/pbt_CartPole-v1/0/checkpoints/iteration_9_id_3/default_checkpoint/default_checkpoint_c_episode_1_step_1
+
 n_iterations: 10
 eval_criterion: eval_return
 n_eval_episodes: 128
@@ -57,9 +59,9 @@ autorl:
 hydra:
   output_subdir: "."
   run:
-    dir: results/rbt_${optimizer}_${eval_criterion}_${environment.name}
+    dir: results/rbt-buf_${optimizer}_${eval_criterion}_${environment.name}
   sweep:
-    dir: results/rbt_${optimizer}_${eval_criterion}_${environment.name}
+    dir: results/rbt-buf_${optimizer}_${eval_criterion}_${environment.name}
     subdir: ${autorl.seed}
   job:
     chdir: true

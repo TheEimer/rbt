@@ -23,6 +23,18 @@ import jax.numpy as jnp
 import optax
 from flax import linen as nn
 from jax import random
+from flax.core.frozen_dict import FrozenDict
+
+
+def unfreeze_if_needed(tree):
+  """Recursively convert FrozenDict to dict, including inside namedtuples."""
+  if isinstance(tree, FrozenDict):  
+    return {k: unfreeze_if_needed(v) for k, v in tree.items()}
+  elif isinstance(tree, tuple) and hasattr(tree, '_fields'):  # Handle namedtuple
+    return type(tree)(*(unfreeze_if_needed(v) for v in tree))
+  elif isinstance(tree, (list, tuple)):  # Handle lists and tuples
+    return type(tree)(unfreeze_if_needed(v) for v in tree)
+  return tree  # Return as is for
 
 
 def leastk_mask(scores, ones_fraction):
@@ -176,6 +188,12 @@ class BaseRecycler:
       is_reset = self.is_reset(update_step)
     else: 
       is_reset = True
+
+    params = unfreeze_if_needed(params)
+    new_params = unfreeze_if_needed(new_params)
+    opt_state = unfreeze_if_needed(opt_state)
+    new_opt_state = unfreeze_if_needed(new_opt_state)
+
     new_params, new_opt_state = jax.lax.cond(is_reset, lambda x: (new_params, new_opt_state), lambda x: (params, opt_state), key)
     return new_params, new_opt_state, is_reset
 
@@ -546,9 +564,30 @@ class NeuronRecycler(BaseRecycler):
     unfrozen_incoming_mask = incoming_mask.unfreeze()
     unfrozen_outgoing_mask = outgoing_mask.unfreeze()
     reset_momentum_fn = jax.jit(functools.partial(jax.tree_map, reset_momentum))
-    new_mu = reset_momentum_fn(opt_state[0][1], unfrozen_incoming_mask)
+    print("type(opt_state):", type(opt_state))
+    print("len(opt_state):", len(opt_state))
+
+    print("type(opt_state[0]):", type(opt_state[0]))
+    print("type(opt_state[0][1]):", type(opt_state[0][1]))
+    print("type(opt_state[0][2]):", type(opt_state[0][2]))
+
+    
+
+    def print_dict_types(d, indent=0):
+      """Recursively prints the types of all values in a nested dictionary."""
+      if isinstance(d, dict) or isinstance(d, FrozenDict):
+        for key, value in d.items():
+          print(" " * indent + f"{key}: {type(value)}")
+          print_dict_types(value, indent + 2)  # Recur with increased indentation
+      elif isinstance(d, (list, tuple)):  # If value is a list or tuple, iterate over it
+        for i, item in enumerate(d):
+          print(" " * indent + f"[{i}]: {type(item)}")
+          print_dict_types(item, indent + 2)  # Recur with increased indentation
+
+
+    new_mu = reset_momentum_fn(unfreeze_if_needed(opt_state[0][1]), unfrozen_incoming_mask)
     new_mu = reset_momentum_fn(new_mu, unfrozen_outgoing_mask)
-    new_nu = reset_momentum_fn(opt_state[0][2], unfrozen_incoming_mask)
+    new_nu = reset_momentum_fn(unfreeze_if_needed(opt_state[0][2]), unfrozen_incoming_mask)
     new_nu = reset_momentum_fn(new_nu, unfrozen_outgoing_mask)
     opt_state_list = list(opt_state)
     opt_state_list[0] = optax.ScaleByAdamState(

@@ -2,6 +2,7 @@ defaults:
   - _self_
   - /algorithm: dqn
   - /environment: cc_cartpole
+  - /experiment: box2d_lunar_lander_dqn
   - search_space: dqn
   - cluster: local
 

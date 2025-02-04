@@ -1,11 +1,15 @@
 defaults:
   - _self_
-  - /algorithm: dqn
+  - /algorithm: redo_dqn
   - /environment: cc_cartpole
   - /experiment: cc_cartpole_dqn
   - search_space: dqn_no_cond
   - cluster: local
   - override hydra/sweeper: HyperPBT
+
+replay_ratio: 0.1
+n_iterations: 10
+n_eval_episodes: 128
 
 hydra:
   sweeper:
@@ -24,9 +28,9 @@ hydra:
       maximize: true
     search_space: ${search_space}
   run:
-    dir: results/pbt_${environment.name}/${autorl.seed}
+    dir: results/pbt_redo_${environment.name}/${autorl.seed}
   sweep:
-    dir: results/pbt_${environment.name}/${autorl.seed}
+    dir: results/pbt_redo_${environment.name}/${autorl.seed}
   job:
     chdir: true
 
@@ -56,5 +60,13 @@ autorl:
   optimize_objectives: "upper"
   n_steps: ${pbt_iterations}
   n_eval_steps: 10
-  n_eval_episodes: 128
-  
+  n_eval_episodes: ${n_eval_episodes}
+  weight_recycler_config: 
+    weight_recycler: "primacy"
+    reset_period: ${eval:'${environment.n_total_timesteps} // ${n_iterations}'}
+    reset_end_step: ${environment.n_total_timesteps}
+  manual_epsilon: true
+  epsilon: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+  replay_ratio: ${replay_ratio}
+  manual_offline_updates: true
+  manual_recycling: true

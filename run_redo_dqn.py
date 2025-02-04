@@ -13,23 +13,10 @@ from typing import TYPE_CHECKING
 import hydra
 import jax
 from arlbench.autorl import AutoRLEnv
-from arlbench.core.algorithms import ResetDQN
-from arlbench.utils.dict_helpers import to_dict
-from arlbench.utils.sbv import get_train_data, get_val_data
-import functools
-
-from hydra_plugins.hypersweeper.search_space_encoding import \
-    search_space_to_config_space
-from smac import MultiFidelityFacade as MFFacade, HyperparameterOptimizationFacade as HPOFacade, RandomFacade
-from smac import Scenario
-from smac.intensifier.hyperband import Hyperband
-import shutil
-from smac.runhistory.dataclasses import TrialValue
 from omegaconf import OmegaConf
-import numpy as np
 from collections import defaultdict
-from ConfigSpace import Configuration, ConfigurationSpace, UniformIntegerHyperparameter
 import pandas as pd
+from functools import partial
 
 OmegaConf.register_new_resolver("eval", eval)
 
@@ -58,7 +45,7 @@ def run(cfg: DictConfig, logger: logging.Logger):
     full_evals = defaultdict(list)
     iteration = 0
 
-    hp_config = dict(ResetDQN.get_default_hpo_config())
+    hp_config = dict(cfg.hp_config)
 
     while iteration < cfg.n_iterations and not done:
         logger.info(f"Starting iteration {iteration}")
@@ -78,7 +65,7 @@ def run(cfg: DictConfig, logger: logging.Logger):
         logger.info("Done.")
 
         logger.info("Fitting offline...")
-        offline_steps = int(env._algorithm.weight_recycler.reset_period * env._algorithm.offline_update_fraction * hp_config["gradient_steps"])
+        offline_steps = int(env._algorithm.weight_recycler.reset_period * cfg.replay_ratio)
         rng, train_state, _, metrics = env._algorithm.fit_offline(
             offline_steps,
             rng,

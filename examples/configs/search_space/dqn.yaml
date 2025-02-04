@@ -44,8 +44,8 @@ hyperparameters:
     name: tau
     type: uniform_float
     upper: 1.0
-    lower: 0.01
-    default: 0.1
+    lower: 0.001
+    default: 1.0
     log: false
   hp_config.gamma:
     name: gamma

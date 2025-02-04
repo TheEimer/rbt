@@ -1,0 +1,13 @@
+
+# @package _global_
+defaults:
+  - override /environment: minatar_spaceinvaders  
+
+experiment_name: minatar_spaceinvaders_dqn
+
+environment:
+  n_envs: 8
+  n_total_timesteps: 10000000
+
+# nas_config:
+#   hidden_size: 256

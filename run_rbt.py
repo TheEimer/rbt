@@ -13,10 +13,10 @@ from typing import TYPE_CHECKING
 import hydra
 import jax
 from arlbench.autorl import AutoRLEnv
-from arlbench.core.algorithms import ResetDQN
+from arlbench.autorl.checkpointing import Checkpointer
 from arlbench.utils.dict_helpers import to_dict
 from arlbench.utils.sbv import get_train_data, get_val_data
-import functools
+from functools import partial
 
 from hydra_plugins.hypersweeper.search_space_encoding import \
     search_space_to_config_space
@@ -73,7 +73,8 @@ def run(cfg: DictConfig, logger: logging.Logger):
                     default_value=cfg.hb_max_budget // 2
                 )
             )
-    hp_config = dict(ResetDQN.get_default_hpo_config())
+        
+    hp_config = dict(cfg.hp_config)
 
     while iteration < cfg.n_iterations and not done:
         logger.info(f"Starting iteration {iteration}")
@@ -91,6 +92,10 @@ def run(cfg: DictConfig, logger: logging.Logger):
         save_path = env._save(tag=tag)
         assert env._algorithm_state is not None
 
+        # DEBUG: This is for checking how the buffer quality affects the performance
+        if "load_buffer_state" in cfg and cfg.load_buffer_state is not None:
+            Checkpointer.load(cfg.load_buffer_state, env._algorithm_state)
+ 
         # We need to backup the buffer state to assign it again
         # after loading the checkpoint. As the buffer has a custom
         # state containing the train and validation splits, we 
@@ -102,7 +107,6 @@ def run(cfg: DictConfig, logger: logging.Logger):
 
         logger.info("Setting up SMAC...")
         
-
         # We add the incumbent of the last iteration to the initial design
         if prev_incumbent_config is not None:
             additional_configs = [Configuration(configspace, values=prev_incumbent_config)]
@@ -166,7 +170,7 @@ def run(cfg: DictConfig, logger: logging.Logger):
             )
                         
             initial_design = MFFacade.get_initial_design(scenario=scenario, additional_configs=additional_configs)
-            intensifier = Hyperband(scenario, eta=cfg.hb_eta)
+            intensifier = Hyperband(scenario, eta=cfg.hb_eta, incumbent_selection="any_budget")
             
             smac = MFFacade(
                 scenario=scenario,
@@ -186,7 +190,7 @@ def run(cfg: DictConfig, logger: logging.Logger):
                 seed=cfg.autorl.seed
             )
             initial_design = RandomFacade.get_initial_design(scenario=scenario, additional_configs=additional_configs)
-            intensifier = Hyperband(scenario, eta=cfg.hb_eta)
+            intensifier = Hyperband(scenario, eta=cfg.hb_eta, incumbent_selection="any_budget")
 
             smac = MFFacade(
                 scenario=scenario,
@@ -208,6 +212,7 @@ def run(cfg: DictConfig, logger: logging.Logger):
 
         incumbent_path = None
         incumbent_performance = None
+        incumbent_algorithm_state = None
 
         if cfg.eval_criterion == "msbe":
             logger.info("Getting training data...")
@@ -236,11 +241,14 @@ def run(cfg: DictConfig, logger: logging.Logger):
                 assert budget is not None
                 hp_config = to_dict(config.config)
 
-            new_hp_config = dict(ResetDQN.get_default_hpo_config())
+            # We only update the hyperparameters that are in the config space,
+            # everything else is set to default
+            new_hp_config = dict(cfg.hp_config)
             for k, v in hp_config.items():
                 new_hp_config[k] = v
 
             env._hpo_config = new_hp_config
+            env._algorithm = env._make_algorithm()
 
             logger.info("Recycling neurons...")
             train_state, _ = env._algorithm.recycle_neurons(env._algorithm_state.runner_state.train_state, env._algorithm_state.buffer_state, env._algorithm_state.runner_state.global_step, rng, True)
@@ -251,8 +259,9 @@ def run(cfg: DictConfig, logger: logging.Logger):
             # logger.info("Done.")
 
             logger.info("Fitting offline...")
+            # print object address of hp_config
             rng, train_state, _, metrics = env._algorithm.fit_offline(
-                int(budget),
+                1,   # TODO replace with budget
                 rng,
                 env._algorithm_state.buffer_state,
                 train_state,
@@ -294,6 +303,7 @@ def run(cfg: DictConfig, logger: logging.Logger):
                 incumbent_performance = performance
                 incumbent_eval_performance = eval
                 incumbent_config = env._hpo_config
+                incumbent_algorithm_state = env._algorithm_state
 
                 shutil.rmtree(incumbent_path, ignore_errors=True)
                 incumbent_path = env._save(tag=f"rbt_incumbent_iteration_{iteration}")
@@ -302,9 +312,11 @@ def run(cfg: DictConfig, logger: logging.Logger):
                 terminate = total_budget >= cfg.budget_per_iteration
             else:
                 terminate = n_configs >= cfg.n_configs_per_iteration
-            
-        if incumbent_path is not None:
-            env._load(incumbent_path, seed=cfg.autorl.seed)
+        
+        env._hpo_config = new_hp_config
+        env._algorithm = env._make_algorithm()
+        env._algorithm_state = incumbent_algorithm_state
+        
         hp_config = incumbent_config
         prev_incumbent_config = config.config
 
