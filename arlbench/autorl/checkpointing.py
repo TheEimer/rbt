@@ -135,7 +135,6 @@ class Checkpointer:
         if (
             (algorithm in ("redo_dqn", "dqn"))
             and isinstance(runner_state, DQNRunnerState)
-            and isinstance(train_result, DQNTrainingResult)
         ):
             algorithm_ckpt = DQN.get_checkpoint_factory(runner_state, train_result)
             algorithm_ckpt = DQN.get_checkpoint_factory(runner_state, train_result)

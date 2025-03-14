@@ -105,7 +105,7 @@ class DQNMetrics(NamedTuple):
     """DQN metrics returned by train function. Consists of (loss, grads, td_error)."""
 
     loss: jnp.ndarray
-    grads: jnp.ndarray | tuple
+    grads: jnp.ndarray | tuple | None
     td_error: jnp.ndarray
 
 

@@ -6,25 +6,26 @@ defaults:
   - search_space: dqn_rbt
   - cluster: local
 
-load_buffer_state: /scratch/hpc-prf-intexml/jbecktepe/git_repos/rbt_dev/results/pbt_CartPole-v1/0/checkpoints/iteration_9_id_3/default_checkpoint/default_checkpoint_c_episode_1_step_1
-
 jax_enable_x64: false
 load_checkpoint: ""
 remove_checkpoints: true
 
-replay_ratio: 0.005
-use_default_for_rollouts: false
+replay_ratio: 0.1
+use_default_for_rollouts: true
+continuous_smac: false
+optimize_replay_ratio: true
 
 n_iterations: 10
 eval_criterion: eval_return
 n_eval_episodes: 128
-hb_min_budget: ${eval:'${hb_max_budget} // 10'}
-hb_max_budget: ${eval:'int(${environment.n_total_timesteps} // ${n_iterations} * ${replay_ratio})'}
+hb_min_budget: ${eval:'${hb_max_budget} / 10'}
+hb_max_budget: ${replay_ratio}
 budget_per_iteration:  ${eval:'16 * ${hb_max_budget}'}
 hb_eta: 2
 n_configs_per_iteration: 16
 n_hb_configs_per_iteration: 22
 optimizer: smac
+
 
 autorl:
   seed: 42
@@ -57,13 +58,14 @@ autorl:
   manual_recycling: true
   validation_size: 0.2
   visualize_buffer: false
-  
+  reset_layers: ["dense1", "out_layer"]
+
 hydra:
   output_subdir: "."
   run:
-    dir: results/rbt-buf_${optimizer}_${replay_ratio}_${eval_criterion}_${environment.name}
+    dir: results/rbt-dr_${optimizer}_${replay_ratio}_${eval_criterion}_${environment.name}
   sweep:
-    dir: results/rbt-buf_${optimizer}_${replay_ratio}_${eval_criterion}_${environment.name}
+    dir: results/rbt-dr_${optimizer}_${replay_ratio}_${eval_criterion}_${environment.name}
     subdir: ${autorl.seed}
   job:
     chdir: true

@@ -9,9 +9,9 @@ defaults:
 hydra:
   output_subdir: "."
   run:
-    dir: results/${algorithm}_${environment.name}/
+    dir: results/${environment.name}/${algorithm}
   sweep:
-    dir: results/${algorithm}_${environment.name}/
+    dir: results/${environment.name}/${algorithm}
     subdir: ${autorl.seed}
   job:
     chdir: true

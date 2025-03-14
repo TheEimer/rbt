@@ -6,20 +6,20 @@ defaults:
   - search_space: dqn_rbt
   - cluster: local
 
-load_buffer_state: /scratch/hpc-prf-intexml/jbecktepe/git_repos/rbt_dev/results/pbt_CartPole-v1/0/checkpoints/iteration_9_id_3/default_checkpoint/default_checkpoint_c_episode_1_step_1
-
 jax_enable_x64: false
 load_checkpoint: ""
 remove_checkpoints: true
 
-replay_ratio: 0.005
+replay_ratio: 0.01
 use_default_for_rollouts: false
+continuous_smac: false
+optimize_replay_ratio: false
 
 n_iterations: 10
 eval_criterion: eval_return
 n_eval_episodes: 128
-hb_min_budget: ${eval:'${hb_max_budget} // 10'}
-hb_max_budget: ${eval:'int(${environment.n_total_timesteps} // ${n_iterations} * ${replay_ratio})'}
+hb_min_budget: ${eval:'${hb_max_budget} / 10'}
+hb_max_budget: ${replay_ratio}
 budget_per_iteration:  ${eval:'16 * ${hb_max_budget}'}
 hb_eta: 2
 n_configs_per_iteration: 16
@@ -37,7 +37,7 @@ autorl:
   cnn_policy: ${environment.cnn_policy}
   nas_config: ${nas_config}
   n_total_timesteps: ${eval:'${environment.n_total_timesteps} // ${n_iterations}'}
-  checkpoint: ["opt_state", "params", "target_params"]
+  checkpoint: ["opt_state", "params"]
   checkpoint_name: "default_checkpoint"
   checkpoint_dir: "./checkpoints"
   state_features: []
@@ -52,18 +52,19 @@ autorl:
     reset_end_step: ${environment.n_total_timesteps}
   manual_epsilon: true
   epsilon: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
-  replay_ratio: 0.
+  replay_ratio: 0.0
   manual_offline_updates: true
   manual_recycling: true
-  validation_size: 0.2
+  validation_size: 0
   visualize_buffer: false
+  reset_layers: ["dense1", "out_layer"]
   
 hydra:
   output_subdir: "."
   run:
-    dir: results/rbt-buf_${optimizer}_${replay_ratio}_${eval_criterion}_${environment.name}
+    dir: results/${environment.name}/rbt-mediumreset_${optimizer}_${replay_ratio}_${eval_criterion}
   sweep:
-    dir: results/rbt-buf_${optimizer}_${replay_ratio}_${eval_criterion}_${environment.name}
+    dir: results/${environment.name}/rbt-mediumreset_${optimizer}_${replay_ratio}_${eval_criterion}
     subdir: ${autorl.seed}
   job:
     chdir: true

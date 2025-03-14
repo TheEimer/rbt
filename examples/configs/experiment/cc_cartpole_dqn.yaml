@@ -7,19 +7,3 @@ experiment_name: cc_cartpole_dqn
 environment:
   n_envs: 8
   n_total_timesteps: 100000
-
-# from https://huggingface.co/sb3/dqn-CartPole-v1
-# hp_config:
-#   buffer_batch_size: 128
-#   buffer_size: 50000
-#   target_epsilon: 0.04
-#   exploration_fraction: 0.16
-#   gamma: 0.99
-#   learning_rate: 0.0023
-#   target_update_interval: 10
-#   train_freq: 256
-#   gradient_steps: 128
-#   normalize_observations: False
-
-# nas_config:
-#   hidden_size: 256

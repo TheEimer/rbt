@@ -34,6 +34,7 @@ from arlbench.core.algorithms.neuron_recycler import (
 )
 from flashbax import (
     make_train_val_item_buffer,
+    make_prioritised_item_buffer
 )
 
 from .dqn import (
@@ -89,7 +90,8 @@ class ResetDQN(Algorithm):
         replay_ratio: float = 0.1,
         manual_offline_updates: bool = False,
         manual_recycling: bool = False,
-        validation_size: float = 0.1
+        validation_size: float = 0.1,
+        reset_layers: list[str] = ["out_layer"],
     ) -> None:
         """Creates a ReDo DQN algorithm instance.
 
@@ -125,6 +127,7 @@ class ResetDQN(Algorithm):
         self.manual_offline_updates = manual_offline_updates
         self.manual_recycling = manual_recycling
         self.validation_size = validation_size
+        self.reset_layers = reset_layers
 
         # For the network, we need the properties of the action space
         action_size, discrete = self.action_type
@@ -135,32 +138,43 @@ class ResetDQN(Algorithm):
             activation=self.nas_config["activation"],
             hidden_size=self.nas_config["hidden_size"],
         )
+        if self.validation_size > 0:
+            self.buffer = make_train_val_item_buffer(
+                max_length=self.hpo_config["buffer_size"],
+                min_length=self.hpo_config["buffer_batch_size"],
+                sample_batch_size=self.hpo_config["buffer_batch_size"],
+                add_batches=True,
+                add_sequences=False,
+            )
+        else:
+            self.buffer = make_prioritised_item_buffer(
+                max_length=self.hpo_config["buffer_size"],
+                min_length=self.hpo_config["buffer_batch_size"],
+                sample_batch_size=self.hpo_config["buffer_batch_size"],
+                add_batches=True,
+                add_sequences=False,
+                priority_exponent=self.hpo_config["buffer_alpha"],
+                device=jax.default_backend(),
+            )
 
-        self.buffer = make_train_val_item_buffer(
-            max_length=self.hpo_config["buffer_size"],
-            min_length=self.hpo_config["buffer_batch_size"],
-            sample_batch_size=self.hpo_config["buffer_batch_size"],
-            add_batches=True,
-            add_sequences=False,
-        )
+            # This is how we can turn the prioritized sampling on/off for dynamic HPO
+            # We always use the prioritized replay buffer, but if "buffer_prio_sampling"
+            # is disabled, we replace the sampling function by the uniform sampling
+            if self.hpo_config["buffer_prio_sampling"] is False:
+                sample_fn = functools.partial(
+                    uniform_sample,
+                    batch_size=self.hpo_config["buffer_batch_size"],
+                    sequence_length=1,
+                    period=1,
+                )
+                self.buffer = self.buffer.replace(sample=sample_fn)
 
-        # # This is how we can turn the prioritized sampling on/off for dynamic HPO
-        # # We always use the prioritized replay buffer, but if "buffer_prio_sampling"
-        # # is disabled, we replace the sampling function by the uniform sampling
-        # if self.hpo_config["buffer_prio_sampling"] is False:
-        #     sample_fn = functools.partial(
-        #         uniform_sample,
-        #         batch_size=self.hpo_config["buffer_batch_size"],
-        #         sequence_length=1,
-        #         period=1,
-        #     )
-        #     self.buffer = self.buffer.replace(sample=sample_fn)
-
-        self.weight_recycler_config = weight_recycler_config
-        if self.weight_recycler_config is None:
+        if weight_recycler_config is None:
             self.weight_recycler_config = {}
-        elif isinstance(self.weight_recycler_config, DictConfig):
-            self.weight_recycler_config = OmegaConf.to_container(self.weight_recycler_config, resolve=True)
+        elif isinstance(weight_recycler_config, dict):
+            self.weight_recycler_config = dict(weight_recycler_config)
+        elif isinstance(weight_recycler_config, DictConfig):
+            self.weight_recycler_config = OmegaConf.to_container(weight_recycler_config, resolve=True)
 
         if "weight_recycler" in self.weight_recycler_config:
             self.recycler_cls = RECYCLERS[self.weight_recycler_config["weight_recycler"]]
@@ -325,8 +339,11 @@ class ResetDQN(Algorithm):
                 reward=_reward[0],
                 done=_done[0],
             )
-            buffer_state = self.buffer.init(_timestep, val_size=self.validation_size, seed=int(jax.random.randint(rng, (1,), 0, int(1e6))[0]))
-
+            if self.validation_size > 0:
+                buffer_state = self.buffer.init(_timestep, val_size=self.validation_size, seed=int(jax.random.randint(rng, (1,), 0, int(1e6))[0]))
+            else:
+                buffer_state = self.buffer.init(_timestep)
+                
         rng, init_rng = jax.random.split(rng)
         if network_params is None:
             network_params = self.network.init(init_rng, _obs)
@@ -424,7 +441,7 @@ class ResetDQN(Algorithm):
         Returns:
             DQNTrainReturnT: Tuple of DQN algorithm state and training result.
         """
-        self.weight_recycler = self.recycler_cls(list(runner_state.train_state.params.keys()), **self.weight_recycler_config)
+        self.weight_recycler = self.recycler_cls(self.reset_layers, **self.weight_recycler_config)
         n_update_steps = int(
             np.ceil(
                 n_total_timesteps
@@ -478,7 +495,7 @@ class ResetDQN(Algorithm):
         next_observations: jnp.ndarray,
         rewards: jnp.ndarray,
         dones: jnp.ndarray,
-    ) -> tuple[DQNTrainState, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+    ) -> tuple[DQNTrainState, jnp.ndarray, jnp.ndarray]:
         """Update the Q-network.
 
         Args:
@@ -490,7 +507,7 @@ class ResetDQN(Algorithm):
             dones (jnp.ndarray): Batch of dones.
 
         Returns:
-            tuple[DQNTrainState, jnp.ndarray, jnp.ndarray, jnp.ndarray]: Tuple of (train_state, loss, td_error, grads).
+            tuple[DQNTrainState, jnp.ndarray, jnp.ndarray]: Tuple of (train_state, loss, td_error).
         """
         if self.hpo_config["use_target_network"]:
             q_next_target = self.network.apply(
@@ -519,7 +536,7 @@ class ResetDQN(Algorithm):
             train_state.params
         )
         train_state = train_state.apply_gradients(grads=grads)
-        return train_state, loss_value, td_error, grads
+        return train_state, loss_value, td_error
 
 
     def _update_step(
@@ -797,15 +814,16 @@ class ResetDQN(Algorithm):
                 else:
                     last_obs = experience.last_obs
                     obs = experience.obs
-                # if self.hpo_config["buffer_prio_sampling"]:
-                #     is_weights = jnp.power(
-                #         (1.0 / batch.priorities), self.hpo_config["buffer_beta"]
-                #     )
-                #     is_weights = is_weights / jnp.max(is_weights)
-                # else:
-                #     is_weights = jnp.ones_like(batch.priorities)
-                is_weights = jnp.ones(len(batch))
-                train_state, loss, td_error, grads = self.update(
+
+                if self.hpo_config["buffer_prio_sampling"]:
+                    is_weights = jnp.power(
+                        (1.0 / batch.priorities), self.hpo_config["buffer_beta"]
+                    )
+                    is_weights = is_weights / jnp.max(is_weights)
+                else:
+                    is_weights = jnp.ones_like(experience.reward)
+
+                train_state, loss, td_error = self.update(
                     train_state,
                     last_obs,
                     is_weights,
@@ -822,13 +840,12 @@ class ResetDQN(Algorithm):
                 if not self.track_metrics:
                     loss = None
                     td_error = None
-                    grads = None
 
                 return (
                     rng,
                     train_state,
                     buffer_state,
-                ), DQNMetrics(loss=loss, td_error=td_error, grads=grads)
+                ), DQNMetrics(loss=loss, td_error=td_error, grads=None)
 
             (rng, train_state, buffer_state), metrics = jax.lax.scan(
                 gradient_step,
@@ -880,12 +897,11 @@ class ResetDQN(Algorithm):
             else:
                 loss = None
                 td_error = None
-                grads = None
             return (
                 rng,
                 train_state,
                 buffer_state,
-                DQNMetrics(loss=loss, td_error=td_error, grads=grads),
+                DQNMetrics(loss=loss, td_error=td_error, grads=None),
             )
 
         rng, train_state, buffer_state, metrics = jax.lax.cond(
@@ -928,7 +944,7 @@ class ResetDQN(Algorithm):
         return (runner_state, buffer_state), (metrics, trajectories)
     
     def recycle_neurons(self, train_state, buffer_state, global_step, rng, force=None):
-        self.weight_recycler = self.recycler_cls(list(train_state.params.keys()), **self.weight_recycler_config)
+        self.weight_recycler = self.recycler_cls(self.reset_layers, **self.weight_recycler_config)
 
         intermediates = self.get_intermediates(rng, train_state.params, buffer_state)
         rng, key = jax.random.split(rng)
@@ -938,7 +954,7 @@ class ResetDQN(Algorithm):
         train_state = train_state.replace(params=params, opt_state=opt_state)
         return train_state, recycled
 
-    @functools.partial(jax.jit, static_argnums=(0, 1,))
+    @functools.partial(jax.jit, static_argnums=(0, 1))
     def fit_offline(self, steps, rng, buffer_state, train_state, normalizer_state, global_step, recycled):
         def do_update(
             rng: chex.PRNGKey,
@@ -980,7 +996,10 @@ class ResetDQN(Algorithm):
                 """
                 rng, train_state, buffer_state = carry
                 rng, batch_sample_rng = jax.random.split(rng)
-                batch = self.buffer.sample_train(buffer_state, batch_sample_rng)
+                if self.validation_size > 0:
+                    batch = self.buffer.sample_train(buffer_state, batch_sample_rng)
+                else:
+                    batch = self.buffer.sample(buffer_state, batch_sample_rng)
                 experience = batch.experience
                 if self.hpo_config["normalize_observations"]:
                     last_obs = running_statistics.normalize(
@@ -990,16 +1009,16 @@ class ResetDQN(Algorithm):
                 else:
                     last_obs = experience.last_obs
                     obs = experience.obs
-                # if self.hpo_config["buffer_prio_sampling"]:
-                #     is_weights = jnp.power(
-                #         (1.0 / batch.priorities), self.hpo_config["buffer_beta"]
-                #     )
-                #     is_weights = is_weights / jnp.max(is_weights)
-                # else:
-                #     is_weights = jnp.ones_like(batch.priorities)
 
-                is_weights = jnp.ones(len(batch))
-                train_state, loss, td_error, grads = self.update(
+                if self.hpo_config["buffer_prio_sampling"]:
+                    is_weights = jnp.power(
+                        (1.0 / batch.priorities), self.hpo_config["buffer_beta"]
+                    )
+                    is_weights = is_weights / jnp.max(is_weights)
+                else:
+                    is_weights = jnp.ones_like(experience.reward)
+
+                train_state, loss, td_error = self.update(
                     train_state,
                     last_obs,
                     is_weights,
@@ -1027,7 +1046,7 @@ class ResetDQN(Algorithm):
                     rng,
                     train_state,
                     buffer_state,
-                ), DQNMetrics(loss=loss, td_error=td_error, grads=grads)
+                ), DQNMetrics(loss=loss, td_error=td_error, grads=None)
 
             (rng, train_state, buffer_state), metrics = jax.lax.scan(
                 gradient_step,
@@ -1066,15 +1085,12 @@ class ResetDQN(Algorithm):
                 (steps,)
             )
             td_error = jnp.ones((steps, self.hpo_config["buffer_batch_size"]))
-            grads = jax.tree_map(
-                lambda x: jnp.broadcast_to(x, (steps,) + x.shape),
-                train_state.params,
-            )
+
             return (
                 rng,
                 train_state,
                 buffer_state,
-                DQNMetrics(loss=loss, td_error=td_error, grads=grads),
+                DQNMetrics(loss=loss, td_error=td_error, grads=None),
             )
 
         loss = jax.lax.broadcast(
@@ -1084,16 +1100,14 @@ class ResetDQN(Algorithm):
         td_error = jnp.ones(
             (steps, self.hpo_config["buffer_batch_size"])
         )
-        grads = jax.tree_map(
-            lambda x: jnp.broadcast_to(x, (steps,) + x.shape),
-            train_state.params,
-        )
-        metrics = DQNMetrics(loss=loss, td_error=td_error, grads=grads)
-        stepped_far = global_step > np.ceil(self.hpo_config["learning_starts"] // self.env.n_envs)
+
+        metrics = DQNMetrics(loss=loss, td_error=td_error, grads=None)
+        # stepped_far = global_step > np.ceil(self.hpo_config["learning_starts"] // self.env.n_envs)
         def loop_body(i, carry):
             rng, train_state, buffer_state, metrics = carry
             rng, train_state, buffer_state, metrics = jax.lax.cond(
-                stepped_far & recycled,
+                # stepped_far & recycled,
+                recycled,
                 do_update,
                 dont_update,
                 rng,

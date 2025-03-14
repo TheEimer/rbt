@@ -40,13 +40,14 @@ autorl:
   replay_ratio: ${replay_ratio}
   manual_offline_updates: true
   manual_recycling: true
-
+  reset_layers: ["dense1", "out_layer"]
+  
 hydra:
   output_subdir: "."
   run:
-    dir: results/redo_dqn_${environment.name}
+    dir: results/${environment.name}/redo_dqn_${replay_ratio}
   sweep:
-    dir: results/redo_dqn_${environment.name}
+    dir: results/${environment.name}/redo_dqn_${replay_ratio}
     subdir: ${autorl.seed}
   job:
     chdir: true

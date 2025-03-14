@@ -65,8 +65,8 @@ def run(cfg: DictConfig, logger: logging.Logger):
         logger.info("Done.")
 
         logger.info("Fitting offline...")
-        offline_steps = int(env._algorithm.weight_recycler.reset_period * cfg.replay_ratio)
-        rng, train_state, _, metrics = env._algorithm.fit_offline(
+        offline_steps = int(env._algorithm.weight_recycler.reset_period / env._algorithm.hpo_config["buffer_batch_size"] * cfg.replay_ratio)
+        rng, train_state, _, _ = env._algorithm.fit_offline(
             offline_steps,
             rng,
             env._algorithm_state.buffer_state,
@@ -78,6 +78,8 @@ def run(cfg: DictConfig, logger: logging.Logger):
         runner_state = env._algorithm_state.runner_state._replace(train_state=train_state)
         env.algorithm_state = env._algorithm_state._replace(runner_state=runner_state)
         logger.info("Done.")
+
+        iteration += 1
 
     with open("full_evals.csv", "w") as f:
         f.write("iteration,config_id,full_eval_performance\n")

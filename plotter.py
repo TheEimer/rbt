@@ -17,13 +17,22 @@ APPROACHES = {
     "redo_dqn": "ReDo DQN",
     "reset_dqn": "Reset DQN",
     "pbt": "PBT",
-    "rbt": "RBT",
-    "rbt-buf": "RBT Buffer",
+    "pbt_redo": "PBT Redo",
+    # "rbt": "RBT-LightReset",
+    # "rbt-fullreset": "RBT-FullReset",
+    "rbt-mediumreset": "RBT-MediumReset",
+    "rbt-mediumreset-cont": "RBT-MediumReset-Cont",
+    "rbt-mediumreset-optbudget": "RBT-MediumReset-OB",
+    "rbt-mediumreset-optbudget-cont": "RBT-MediumReset-OB-Cont",
+    # "rbt-buf": "RBT-GoodBuffer",
+    # "rbt-dr": "RBT-DefaultRollout-M-RST",
 }
 
-# RBT_OFFLINE_UPDATE_FRACTIONS = [0.001, 0.002]
+# RBT_REPLAY_RATIO = [0.01, 0.02]
+RBT_REPLAY_RATIO = [0.01]
+# RBT_REPLAY_RATIO = [0.01, 0.05, 0.1, 0.25]
 RBT_METRICS = {
-    "eval_return": "Evaluation Return",
+    "eval_return": "",
     # "td_error": "TD Error",
     # "msbe": "MSBE",
 }
@@ -35,16 +44,18 @@ class Plotter:
     def __init__(self):
         self.results_dir = Path("./results")
 
-    def load_baseline_results(self, approach: str, env: str):
+    def load_baseline_results(self, approach: str, env: str, replay_ratio: float | None = None):
         evals = []
         for seed in SEEDS:
-            eval_path = self.results_dir / f"{approach}_{env}" / str(seed) / "evaluation.csv"
+            if replay_ratio:
+                eval_path = self.results_dir / env / f"{approach}_{replay_ratio}" / str(seed) / "evaluation.csv"
+            else:
+                eval_path = self.results_dir / env / f"{approach}" / str(seed) / "evaluation.csv"
             if not eval_path.exists():
                 print(f"Skipping {eval_path}")
                 continue
             eval = pd.read_csv(eval_path)
             eval['seed'] = seed
-            eval['approach'] = APPROACHES[approach]
             eval['env'] = env
             evals.append(eval)
 
@@ -53,37 +64,43 @@ class Plotter:
         else:
             return pd.concat(evals)
     
-    def load_rbt_results(self, approach: str, optimizer: str, env: str, metric: str):
+    def load_rbt_results(self, approach: str, optimizer: str, env: str, metric: str, replay_ratio: float, smooth_rbt: bool):
         all_inc_eval = []
         all_metrics = []
 
-        base_dir = f"{approach}_{optimizer}_{metric}_{env}"
+        base_dir = self.results_dir / env / f"{approach}_{optimizer}_{replay_ratio}_{metric}"
         
         for seed in SEEDS:
-            train_info_path = self.results_dir / base_dir / str(seed) / "train_info.csv"
+            train_info_path = base_dir / str(seed) / "train_info.csv"
             if not train_info_path.exists():
                 print(f"Skipping {train_info_path}")
                 continue
         
             train_info = pd.read_csv(train_info_path)
 
-            inc_eval_path = self.results_dir / base_dir / str(seed) / "incumbent_eval_performances.csv"
-            inc_eval = pd.read_csv(inc_eval_path)
-            inc_eval['seed'] = seed
-            inc_eval['approach'] = f"{APPROACHES[approach]} {RBT_METRICS[metric]}"
-            inc_eval['env'] = env   
-            inc_eval.loc[:, 'steps'] = (inc_eval['iteration'] + 1) * max(train_info['steps'])
-            inc_eval.loc[:, 'returns'] = inc_eval['incumbent_performance'] * -1
+            if smooth_rbt:
+                inc_eval_path = base_dir / str(seed) / "incumbent_eval_performances.csv"
+                inc_eval = pd.read_csv(inc_eval_path)
+                inc_eval['seed'] = seed
+                inc_eval['env'] = env   
+                inc_eval.loc[:, 'steps'] = (inc_eval['iteration'] + 1) * max(train_info['steps'])
+                inc_eval.loc[:, 'returns'] = inc_eval['incumbent_performance'] * -1
+            else:
+                step_size = train_info['steps'].min()
+                train_info['steps'] = np.arange(1, len(train_info) + 1) * step_size
+                inc_eval = train_info[['steps', 'returns']].copy()
+
             all_inc_eval.append(inc_eval)
 
-            evals_path = self.results_dir / base_dir / str(seed) / "full_evals.csv"
+
+            evals_path = base_dir / str(seed) / "full_evals.csv"
             eval = pd.read_csv(evals_path)
 
-            td_path = self.results_dir / base_dir / str(seed) / "td_errors.csv"
+            td_path = base_dir / str(seed) / "td_errors.csv"
             td = pd.read_csv(td_path)
             metrics = pd.merge(eval, td, on=['iteration', 'config_id'])
 
-            msbe_path = self.results_dir / base_dir / str(seed) / "msbes.csv"
+            msbe_path = base_dir / str(seed) / "msbes.csv"
             if msbe_path.exists():
                 msbe = pd.read_csv(msbe_path)
                 metrics = pd.merge(metrics, msbe, on=['iteration', 'config_id'])
@@ -101,10 +118,14 @@ class Plotter:
             
             return all_inc_eval, all_metrics
 
-    def load_pbt_results(self, approach: str, env: str):
+    def load_pbt_results(self, approach: str, env: str, replay_ratio: float | None = None):
         results = []
         for seed in SEEDS:
-            perf_path =  self.results_dir / f"{approach}_{env}" / str(seed) / "runhistory.csv"
+            if replay_ratio:
+                perf_path =  self.results_dir / env / f"{approach}_{replay_ratio}" / str(seed) / "runhistory.csv"
+            else:
+                perf_path =  self.results_dir / env / f"{approach}" / str(seed) / "runhistory.csv"
+            
             if not perf_path.exists():
                 print(f"Skipping {perf_path}")
                 continue
@@ -114,7 +135,6 @@ class Plotter:
             perf['returns'] = perf.groupby(['iteration'])['performance'].transform('max') 
             perf['seed'] = seed
 
-            perf['approach'] = APPROACHES[approach]
             perf['env'] = env   
             perf['steps'] = perf['iteration'] * perf['budget'].values[0]
 
@@ -130,8 +150,9 @@ class Plotter:
             env: str,
             rbt_optimizer: str,
             approaches: list[str] | None = None,
-            # rbt_fractions: list[float] | None = None,
-            rbt_metrics: list[str] | None = None
+            replay_ratios: list[float] | None = None,
+            rbt_metrics: list[str] | None = None,
+            smooth_rbt: bool = False
         ):
         all_data = []
         all_rbt_metrics = []
@@ -139,24 +160,38 @@ class Plotter:
         if approaches is None:
             approaches = list(APPROACHES.keys())
 
-        # if rbt_fractions is None:
-        #     rbt_fractions = RBT_OFFLINE_UPDATE_FRACTIONS
+        if replay_ratios is None:
+            replay_ratios = RBT_REPLAY_RATIO
 
         if rbt_metrics is None:
             rbt_metrics = list(RBT_METRICS.keys())
 
         for approach in approaches:
-            if approach in ["dqn", "redo_dqn", "reset_dqn"]:
+            if approach in ["dqn", "reset_dqn"]:
                 data = self.load_baseline_results(approach, env)
+                data["approach"] = APPROACHES[approach]
                 all_data.append(data)
+            elif approach == "redo_dqn":
+                for replay_ratio in replay_ratios:
+                    data = self.load_baseline_results(approach, env, replay_ratio=replay_ratio)
+                    data["approach"] = APPROACHES[approach]
+                    all_data.append(data) 
             elif "rbt" in approach:
-                # for offline_update_fraction in rbt_fractions:
-                for metric in rbt_metrics:
-                    train_info, metrics = self.load_rbt_results(approach, rbt_optimizer, env, metric)
-                    all_data.append(train_info)
-                    all_rbt_metrics.append(metrics)
+                for replay_ratio in replay_ratios:
+                    # for offline_update_fraction in rbt_fractions:
+                    for metric in rbt_metrics:
+                        train_info, metrics = self.load_rbt_results(approach, rbt_optimizer, env, metric, replay_ratio, smooth_rbt)
+                        train_info["approach"] = APPROACHES[approach]
+                        metrics["approach"] = APPROACHES[approach]
+                        all_data.append(train_info)
+                        all_rbt_metrics.append(metrics)
             elif approach == "pbt":
                 data = self.load_pbt_results(approach, env)
+                data["approach"] = APPROACHES[approach]
+                all_data.append(data)
+            elif "pbt_redo" in approach:
+                data = self.load_pbt_results(approach, env, replay_ratio=replay_ratio)
+                data["approach"] = APPROACHES[approach]
                 all_data.append(data)
             else:
                 raise ValueError(f"Unknown approach {approach}")
@@ -167,43 +202,70 @@ class Plotter:
         return all_data, all_rbt_metrics
 
 
-    def plot_combined(self, env: str):
-        fig, axs = plt.subplots(1, len(OPTIMIZERS), figsize=(3 * len(OPTIMIZERS), 3), sharex=True, sharey=True)
+    def plot_combined(self, env: str, show_rbt_inc: bool = True):
+        fig, axs = plt.subplots(len(RBT_REPLAY_RATIO), len(OPTIMIZERS), figsize=(3 * len(OPTIMIZERS), 3 * len(RBT_REPLAY_RATIO)), sharex=True, sharey=True)
 
-        for ax, rbt_optimizer in zip(axs, OPTIMIZERS.keys()):
-            data, _ = self.load_data(env=env, rbt_optimizer=rbt_optimizer)
-            if len(data) == 0:
-                continue
+        for i, rbt_optimizer in enumerate( OPTIMIZERS.keys()):
+            for j, replay_ratio in enumerate(RBT_REPLAY_RATIO):
+                if len(axs.shape) == 1:
+                    ax = axs[i]
+                else:
+                    ax = axs[j, i]
 
-            lineplot = sns.lineplot(data=data, x="steps", y="returns", hue="approach", ax=ax)
-            opt_name = OPTIMIZERS[rbt_optimizer]
-            ax.set_title(f"{opt_name}")
-            ax.set_xlabel("Steps")
-            ax.set_ylabel("Evaluation Return")
+                data, _ = self.load_data(env=env, rbt_optimizer=rbt_optimizer, replay_ratios=[replay_ratio], smooth_rbt=show_rbt_inc)
+                if len(data) == 0:
+                    continue
+                
+                sns.lineplot(
+                    data=data,
+                    x="steps",
+                    y="returns",
+                    hue="approach",
+                    ax=ax,
+                    hue_order=APPROACHES.values(),
+                    errorbar=("ci", 95)
+                )
+                opt_name = OPTIMIZERS[rbt_optimizer]
+                ax.set_title(f"{opt_name}\nRR = {replay_ratio}")
+                ax.set_xlabel("Steps")
+                ax.set_ylabel("Evaluation Return")
 
-            ax.ticklabel_format(axis='x', style='sci', scilimits=(0,0))
+                ax.ticklabel_format(axis='x', style='sci', scilimits=(0,0))
 
-            # disable legend of axis
-            ax.get_legend().remove()
+                # disable legend of axis
+                ax.get_legend().remove()
 
         # Add a single legend to the figure
-        handles, labels = lineplot.get_legend_handles_labels()
+        # handles, labels = axs[0, 0].get_legend_handles_labels()
+        handles, labels = [], []
+        for ax in axs.flatten():
+            _handles, _labels = ax.get_legend_handles_labels()
+            for h, l in zip(_handles, _labels):
+                if l not in labels:
+                    labels.append(l)
+                    handles.append(h)
+
         fig.legend(handles, labels, title="Approach", loc='center left', bbox_to_anchor=(0, 0.5))
         fig.suptitle(env)
 
         plt.tight_layout(rect=[0.18, 0, 1, 1])  # Adjust layout to make space for the legend
-        plt.savefig(f"plots/{env}.png", dpi=400)
+        
+        if show_rbt_inc:
+            name = f"{env}_rbt_inc"
+        else:
+            name = env
+        plt.savefig(f"plots/{name}.png", dpi=400)
 
     def plot_rbt(self, env: str):
-        fig, axs = plt.subplots(3, len(RBT_OFFLINE_UPDATE_FRACTIONS), figsize=(4 * len(RBT_OFFLINE_UPDATE_FRACTIONS), 6), sharex=True, sharey=True)
+        fig, axs = plt.subplots(3, len(RBT_REPLAY_RATIO), figsize=(4 * len(RBT_REPLAY_RATIO), 6), sharex=True, sharey=True)
 
         for i, rbt_optimizer in enumerate(["random", "smac", "smac_mf"]):
-            for ax, budget in zip(axs[i].flatten(), RBT_OFFLINE_UPDATE_FRACTIONS):
+            for ax, budget in zip(axs[i].flatten(), RBT_REPLAY_RATIO):
                 data, _ = self.load_data(
                     env=env,
                     rbt_optimizer=rbt_optimizer,
                     approaches=["rbt"],
-                    rbt_fractions=[budget],
+                    replay_ratios=[budget],
                     rbt_metrics=["eval_return"]
                 )
                 lineplot = sns.lineplot(data=data, x="steps", y="returns", hue="approach", ax=ax)
@@ -216,7 +278,7 @@ class Plotter:
                 ax.get_legend().remove()
 
         # Add a single legend to the figure
-        handles, labels = lineplot.get_legend_handles_labels()
+        handles, labels = axs[0, 0].get_legend_handles_labels()
         fig.legend(handles, labels, title="Approach", loc='center left', bbox_to_anchor=(0, 0.5))
         plt.tight_layout(rect=[0.18, 0, 1, 1])  # Adjust layout to make space for the legend
         plt.savefig(f"plots/{env}_rbt.png", dpi=400)
@@ -226,7 +288,10 @@ if __name__ == '__main__':
     sns.set_palette("colorblind")
 
     plotter = Plotter()
-    plotter.plot_combined("CartPole-v1")
-    # plotter.plot_combined("SpaceInvaders-MinAtar")
-    # plotter.plot_combined("LunarLander-v2")
+    # plotter.plot_combined("CartPole-v1", show_rbt_inc=False)
+    # plotter.plot_combined("CartPole-v1", show_rbt_inc=True)
+    # plotter.plot_combined("SpaceInvaders-MinAtar", show_rbt_inc=False)
+    plotter.plot_combined("SpaceInvaders-MinAtar", show_rbt_inc=True)
+    # plotter.plot_combined("LunarLander-v2", show_rbt_inc=False)
+    # plotter.plot_combined("LunarLander-v2", show_rbt_inc=True)
 

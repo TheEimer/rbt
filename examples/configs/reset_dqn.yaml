@@ -29,7 +29,7 @@ autorl:
   objectives: ["reward_mean"]
   optimize_objectives: "upper"
   n_steps: 1
-  n_eval_steps: 10
+  n_eval_steps: 100
   n_eval_episodes: 128
   weight_recycler_config: 
     weight_recycler: "primacy"
@@ -40,14 +40,15 @@ autorl:
   replay_ratio: 0.0
   manual_offline_updates: true
   manual_recycling: true
+  reset_layers: ["dense1", "out_layer"]
 
 
 hydra:
   output_subdir: "."
   run:
-    dir: results/reset_dqn_${environment.name}
+    dir: results/${environment.name}/reset_dqn
   sweep:
-    dir: results/reset_dqn_${environment.name}
+    dir: results/${environment.name}/reset_dqn
     subdir: ${autorl.seed}
   job:
     chdir: true

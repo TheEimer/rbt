@@ -69,7 +69,7 @@ def run(cfg: DictConfig, logger: logging.Logger):
     logger.info("Done.")
 
     logger.info("Fitting offline...")
-    offline_steps = int(env._algorithm.weight_recycler.reset_period * cfg.replay_ratio)
+    offline_steps = int(env._algorithm.weight_recycler.reset_period / env._algorithm.hpo_config["buffer_batch_size"] * cfg.replay_ratio)
     rng, train_state, _, metrics = env._algorithm.fit_offline(
         offline_steps,
         rng,

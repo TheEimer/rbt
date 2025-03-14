@@ -7,7 +7,7 @@ defaults:
   - cluster: local
   - override hydra/sweeper: HyperPBT
 
-replay_ratio: 0.1
+replay_ratio: 0.01
 n_iterations: 10
 n_eval_episodes: 128
 
@@ -28,9 +28,9 @@ hydra:
       maximize: true
     search_space: ${search_space}
   run:
-    dir: results/pbt_redo_${environment.name}/${autorl.seed}
+    dir: results/${environment.name}/pbt_redo_${replay_ratio}/${autorl.seed}
   sweep:
-    dir: results/pbt_redo_${environment.name}/${autorl.seed}
+    dir: results/${environment.name}/pbt_redo_${replay_ratio}/${autorl.seed}
   job:
     chdir: true
 
@@ -70,3 +70,4 @@ autorl:
   replay_ratio: ${replay_ratio}
   manual_offline_updates: true
   manual_recycling: true
+  reset_layers: ["dense1", "out_layer"]

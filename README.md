@@ -28,136 +28,100 @@
 
 ---
 
-# 🦾 Automated Reinforcement Learning Benchmark
+# 🦾 Reset-based Tuning
 
-The ARLBench is a benchmark for HPO in RL - evaluate your HPO methods fast and on a representative number of environments! For more information, see our [documentation](https://automl.github.io/arlbench/main/). The dataset is available at  [HuggingFace](https://huggingface.co/datasets/autorl-org/arlbench).
-
-## Features
-
-- **Lightning-fast JAX-Based implementations of DQN, PPO, and SAC**
-- **Compatible with many different environment domains via Gymnax, XLand and EnvPool**
-- **Representative benchmark set of HPO settings**
-
-<p align="center">
-    <a href="./docs/images/subsets.png">
-        <img src="./docs/images/subsets.png" alt="ARLBench Subsets" width="80%"/>
-    </a>
-</p>
+This repo contains a draft project for reset-based tuning.
 
 ## Installation
 
-There are currently two different ways to install ARLBench.
-Whichever you choose, we recommend to create a virtual environment for the installation:
-
-```bash
-conda create -n arlbench python=3.10
-conda activate arlbench
-```
-
-The instructions below will help you install the default version of ARLBench with the CPU version of JAX.
-If you want to run the ARLBench on GPU, we recommend you check out the [JAX installation guide](https://jax.readthedocs.io/en/latest/installation.html) to see how you can install the correct version for your GPU setup before proceeding.
-
-<details>
-<summary>PyPI</summary>
-You can install ARLBench using `pip`:
-
-```bash
-pip install arlbench
-```
-
-If you want to use envpool environments (not currently supported for Mac!), instead choose:
-
-```bash
-pip install arlbench[envpool]
-```
-
-</details>
-
-<details>
-<summary>From source: GitHub</summary>
-First, you need to clone the ARLBench reopsitory:
-
-```bash
-git clone git@github.com:automl/arlbench.git
-cd arlbench
-```
-
-Then you can install the benchmark. For the base version, use:
-
+Run
 ```bash
 make install
 ```
 
-For the envpool functionality (not available on Mac!), instead use:
+## Experiments
+
+To run the experiments, you need to execute different scripts to run baselines and RBT versions.
+For all of them, you need to define the ```experiment```, e.g. ```cc_cartpole_dqn```.
+Additionally, you can specify a compute cluster partition, e.g. ```pc2_cpu```.
+
+### Default DQN
 
 ```bash
-make install-envpool
+python run_arlbench.py -m "experiment=<experiment>" "autorl.seed=range(10)" "cluster=pc2_cpu"
 ```
 
-</details>
-
-> [!CAUTION]
-> Windows is currently not supported and also not tested. We recommend using the [Linux subsytem](https://en.wikipedia.org/wiki/Windows_Subsystem_for_Linux) if you're on a Windows machine.
-
-## Quickstart
-
-Here are the two ways you can use ARLBench: via the command line or as an environment. To see them in action, take a look at our [examples](https://github.com/automl/arlbench/tree/main/examples).
-
-### Use the CLI
-
-We provide a command line script for black-box configuration in ARLBench which will also save the results in a 'results' directory. To execute one run of DQN on CartPole, simply run:
+### Reset DQN
 
 ```bash
-python run_arlbench.py
+python run_arlbench.py --config-name=reset_dqn -m "experiment=<experiment>" "autorl.seed=range(10)" "cluster=pc2_cpu"
 ```
 
-You can use the [hydra](https://hydra.cc/) command line syntax to override some of the configuration like this to change to PPO:
+### Redo DQN
 
 ```bash
-python run_arlbench.py algorithm=ppo
+python run_redo_dqn.py -m "experiment=<experiment>" "autorl.seed=range(10)" "cluster=pc2_cpu"
 ```
 
-Or run multiple different seeds after one another:
+### Default PBT
+
+For PBT, we submit the PBT processes to a CPU partition which subsequently submit the actual runs to the partition you specify.
+The 
 
 ```bash
-python run_arlbench.py -m autorl.seed=0,1,2,3,4
+/submit_pbt_pc2.sh <experiment> <cluster>
 ```
 
-All hyperparamters to adapt are in the 'hpo_config' and architecture settings in the 'nas_config', so to run a grid of different configurations for 5 seeds each , you can do this:
+### Redo PBT
+
+Similar to default PBT, you run
 
 ```bash
-python run_arlbench.py -m autorl.seed=0,1,2,3,4 nas_config.hidden_size=8,16,32 hp_config.learning_rate=0.001,0.01
+/submit_pbt_redo_pc2.sh <experiment> <cluster>
 ```
 
-We recommend you create your own custom config files if using the CLI (for more information on this, checkout [Hydra's guide to config files](https://hydra.cc/docs/tutorials/basic/your_first_app/config_file/)). Our [examples](https://github.com/automl/arlbench/tree/main/examples) can show you how these can look.
+### RBT
 
-### Use the AutoRL environment
-
-If you want to have specific control over the ARLBench loop, want to do dynamic configuration or learn based on the agent state, you should use the environment-like interface of ARLBench in your script.
-
-To do so, import ARLBench and use the `AutoRLEnv` to run an RL agent:
-
-```python
-from arlbench import AutoRLEnv
-
-env = AutoRLEnv()
-
-obs, info = env.reset()
-
-action = env.config_space.sample_configuration()
-obs, objectives, term, trunc, info = env.step(action)
+For convenience, you can just execute (or comment out specific parts of)
+```bash
+./run.sh <experiment> <cluster> <replay_ratio>
 ```
 
-Just like with RL agents, you can call 'step' multiple times until termination (which you define via the AutoRLEnv's config). For all configuration options, check out our [documentation](https://automl.github.io/arlbench/main/).
+The default version of RBT is ```medium-reset``` RBT which resets half of the network after each iteration.
+However, we provide several variations, optimizing budget or continuing SMAC runs.
+You find them in  ```examples/configs```.
 
-## Cite Us
+For the default RBT, run
+```bash
+python run_rbt --config-name=rbt_medium_reset -m "experiment=<experiment>" "autorl.seed=range(10)" "cluster=pc2_cpu" "optimizer=rs,smac,rs_mf,smac_mf" "replay_ratio=<replay_ratio>"
+```
 
-If you use ARLBench in your work, please cite us:
+To continue SMAC runs across iterations (only for SMAC and SMAC+HB), run 
+```bash
+python run_rbt --config-name=rbt_medium_reset_cont -m "experiment=<experiment>" "autorl.seed=range(10)" "cluster=pc2_cpu" "optimizer=smac,smac_mf" "replay_ratio=<replay_ratio>"
+```
 
-```bibtex
-@misc{beckdierkes24,
-  author    = {J. Becktepe and J. Dierkes and C. Benjamins and D. Salinas and A. Mohan and R. Rajan and F. Hutter and H. Hoos and M. Lindauer and T. Eimer},
-  title     = {ARLBench},
-  year      = {2024},
-  url = {https://github.com/automl/arlbench},
+To optimize the budget, i.e., number of gradient steps (only for RS and SMAC), run 
+```bash
+python run_rbt --config-name=rbt_medium_reset_optbudget -m "experiment=<experiment>" "autorl.seed=range(10)" "cluster=pc2_cpu" "optimizer=rs,smac" "replay_ratio=<replay_ratio>"
+```
+
+To optimize the budget and continue SMAC runs (only for SMAC), run 
+```bash
+python run_rbt --config-name=rbt_medium_reset_optbudget_cont -m "experiment=<experiment>" "autorl.seed=range(10)" "cluster=pc2_cpu" "optimizer=smac" "replay_ratio=<replay_ratio>"
+```
+
+Additionally, you can use the default configuration for rollouts by running:
+```bash
+python run_rbt --config-name=rbt_default_rollout -m "experiment=<experiment>" "autorl.seed=range(10)" "cluster=pc2_cpu" "optimizer=rs,smac,rs_mf,smac_mf" "replay_ratio=<replay_ratio>"
+```
+
+To reset all network weights, run:
+```bash
+python run_rbt --config-name=rbt_full_reset -m "experiment=<experiment>" "autorl.seed=range(10)" "cluster=pc2_cpu" "optimizer=rs,smac,rs_mf,smac_mf" "replay_ratio=<replay_ratio>"
+```
+
+To reset only the last layer, run:
+```bash
+python run_rbt --config-name=rbt_light_reset -m "experiment=<experiment>" "autorl.seed=range(10)" "cluster=pc2_cpu" "optimizer=rs,smac,rs_mf,smac_mf" "replay_ratio=<replay_ratio>"
 ```

@@ -60,7 +60,7 @@ def get_train_data(env: AutoRLEnv) -> tuple[np.ndarray, np.ndarray]:
     rng = jax.random.PRNGKey(env._seed)
 
     logging.info(f"Compiling get_q_next...")
-    compiled_get_q_next = jax.jit(get_q_next, static_argnums=(0,), donate_argnums=(2,))
+    compiled_get_q_next = jax.jit(get_q_next, static_argnums=(0,))
     logging.info(f"Done.")
 
     all_obs = []
@@ -107,7 +107,7 @@ def get_val_data(env: AutoRLEnv) -> tuple[np.ndarray, np.ndarray]:
     rng = jax.random.PRNGKey(0)
 
     logging.info(f"Compiling get_q_next...")
-    compiled_get_q_values = jax.jit(get_q_values, static_argnums=(0,), donate_argnums=(2,))
+    compiled_get_q_values = jax.jit(get_q_values, static_argnums=(0,))
     logging.info(f"Done.")
 
 

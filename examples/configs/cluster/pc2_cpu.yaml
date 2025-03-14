@@ -6,9 +6,9 @@ hydra:
   launcher:
     partition: normal
     cpus_per_task: 64
-    mem_gb: 128
+    mem_gb: 96
     gres: null
     # qos: express
-    timeout_min: 240
+    timeout_min: 2880 
     setup:
       - export JAX_PLATFORM_NAME=cpu

@@ -24,9 +24,9 @@ hydra:
       maximize: true
     search_space: ${search_space}
   run:
-    dir: results/pbt_${environment.name}/${autorl.seed}
+    dir: results/${environment.name}/pbt/${autorl.seed}
   sweep:
-    dir: results/pbt_${environment.name}/${autorl.seed}
+    dir: results/${environment.name}/pbt/${autorl.seed}
   job:
     chdir: true
 

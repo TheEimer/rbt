@@ -9,5 +9,5 @@ environment:
   n_envs: 8
   n_total_timesteps: 10000000
 
-# nas_config:
-#   hidden_size: 256
+nas_config:
+  hidden_size: 256

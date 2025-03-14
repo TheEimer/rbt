@@ -182,7 +182,9 @@ class BaseRecycler:
       self, update_step, intermediates, params, key, opt_state, is_reset=None
   ):
     self._last_update_step = update_step
+
     new_params, new_opt_state = self.update_weights(intermediates, params, key, opt_state)
+
     new_params = new_params.unfreeze()
     if is_reset is None:
       is_reset = self.is_reset(update_step)
@@ -355,6 +357,7 @@ class LayerReset(BaseRecycler):
 
   def update_weights(self, intermediates, params, key, opt_state):
     param_dict = flax.traverse_util.flatten_dict(params, sep="/")
+    
     mask_dict = {
         k: jnp.zeros_like(p) if p.ndim != 1 else None
         for k, p in param_dict.items()
@@ -385,13 +388,14 @@ class LayerReset(BaseRecycler):
     weight_random_reset_fn = jax.jit(
         functools.partial(jax.tree_map, weight_reinit_random)
     )
+
     params = weight_random_reset_fn(params, masks, random_keys)
 
     # reset mu, nu of adam optimizer for recycled weights.
     reset_momentum_fn = jax.jit(functools.partial(jax.tree_map, reset_momentum))
     unfrozen_masks = masks.unfreeze()
-    new_mu = reset_momentum_fn(opt_state[0][1], unfrozen_masks)
-    new_nu = reset_momentum_fn(opt_state[0][2], unfrozen_masks)
+    new_mu = reset_momentum_fn(unfreeze_if_needed(opt_state[0][1]), unfrozen_masks)
+    new_nu = reset_momentum_fn(unfreeze_if_needed(opt_state[0][2]), unfrozen_masks)
     opt_state_list = list(opt_state)
     opt_state_list[0] = optax.ScaleByAdamState(
         opt_state[0].count, mu=new_mu, nu=new_nu
@@ -564,14 +568,6 @@ class NeuronRecycler(BaseRecycler):
     unfrozen_incoming_mask = incoming_mask.unfreeze()
     unfrozen_outgoing_mask = outgoing_mask.unfreeze()
     reset_momentum_fn = jax.jit(functools.partial(jax.tree_map, reset_momentum))
-    print("type(opt_state):", type(opt_state))
-    print("len(opt_state):", len(opt_state))
-
-    print("type(opt_state[0]):", type(opt_state[0]))
-    print("type(opt_state[0][1]):", type(opt_state[0][1]))
-    print("type(opt_state[0][2]):", type(opt_state[0][2]))
-
-    
 
     def print_dict_types(d, indent=0):
       """Recursively prints the types of all values in a nested dictionary."""
