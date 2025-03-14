@@ -39,6 +39,9 @@ Run
 make install
 ```
 
+Important: If you want to use MSBE as a criterion, you need the flashbax buffer containing training and validation splits.
+Therefore, you need to install this [flashbax fork](https://github.com/becktepe/flashbax).
+
 ## Experiments
 
 To run the experiments, you need to execute different scripts to run baselines and RBT versions.
